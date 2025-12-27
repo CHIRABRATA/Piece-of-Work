@@ -2,7 +2,10 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import auth
 
-security = HTTPBearer()
+security = HTTPBearer(
+    scheme_name="FirebaseAuth",
+    description="Paste a Firebase ID token",
+)
 
 def verify_token(cred: HTTPAuthorizationCredentials = Depends(security)):
     token = cred.credentials
