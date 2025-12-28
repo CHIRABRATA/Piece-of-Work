@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/mainContext";
+import LoginUI from "../components/auth/LoginUI";
+import LightPillar from "../components/LightPillar";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -8,7 +10,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login } = useAuth(); // <--- consuming the Context
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,7 +19,6 @@ const Login = () => {
 
     try {
       await login(email, password, regNo);
-      // Context listener in mainContext.jsx will detect the login and update 'user' state automatically
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -26,38 +27,44 @@ const Login = () => {
     }
   };
 
-  return (
-    <div style={{ padding: "50px", color: "white", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: "350px" }}>
-        <h2 style={{ marginBottom: "20px" }}>Login</h2>
-        {error && <div style={{ color: "red", marginBottom: "10px" }}>{error}</div>}
-        
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <input 
-            placeholder="Reg No (e.g., 2024CS01)" 
-            value={regNo} onChange={(e) => setRegNo(e.target.value)} 
-            required style={inputStyle}
-          />
-          <input 
-            type="email" placeholder="Email" 
-            value={email} onChange={(e) => setEmail(e.target.value)} 
-            required style={inputStyle}
-          />
-          <input 
-            type="password" placeholder="Password" 
-            value={password} onChange={(e) => setPassword(e.target.value)} 
-            required style={inputStyle}
-          />
-          <button type="submit" disabled={isSubmitting} style={btnStyle}>
-            {isSubmitting ? "Verifying..." : "Enter"}
-          </button>
-        </form>
+ return (
+    <div className="relative w-screen h-screen overflow-hidden bg-[#050505]">
+      
+      {/* BACKGROUND LAYER */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <LightPillar
+          topColor="#5227FF"
+          bottomColor="#FF9FFC"
+          intensity={1.2}
+          rotationSpeed={0.35}
+          glowAmount={0.008}
+          pillarWidth={3.5}
+          pillarHeight={0.5}
+          noiseIntensity={0.6}
+          interactive={false}
+        />
       </div>
+
+      {/* FOREGROUND LAYER - CENTERED ALIGNMENT */}
+      {/* Changed 'justify-start pl-20' to 'justify-center' */}
+      <main className="relative z-10 w-full h-full flex items-center justify-center">
+        <div className="w-full max-w-md px-4"> 
+          <LoginUI
+            regNo={regNo}
+            setRegNo={setRegNo}
+            email={email}
+            setEmail={setEmail}
+            password={password}
+            setPassword={setPassword}
+            error={error}
+            isSubmitting={isSubmitting}
+            handleSubmit={handleSubmit}
+          />
+        </div>
+      </main>
+
     </div>
   );
 };
-
-const inputStyle = { padding: "12px", background: "#222", border: "1px solid #444", color: "white", borderRadius: "5px" };
-const btnStyle = { padding: "12px", background: "#007bff", color: "white", border: "none", cursor: "pointer", borderRadius: "5px" };
 
 export default Login;

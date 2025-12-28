@@ -5,21 +5,19 @@ import Discovery from "./pages/Discovery";
 import Login from "./pages/Login"; 
 
 // 1. The Bouncer (Security Check)
-// This sits here so we don't need a separate file for it
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
-     return (
-       <div style={{ 
-          height: "100vh", width: "100vw", 
-          display: "flex", alignItems: "center", justifyContent: "center", 
-          background: "#0b0c15", color: "#00d4ff", 
-          fontFamily: "sans-serif", letterSpacing: "2px"
-       }}>
-          LOADING CAMPUS...
-       </div>
-     );
+    return (
+      /* Replaced inline styles with Tailwind for a modern dark-mode loader */
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-blue-400 font-sans tracking-[0.2em]">
+        <div className="animate-pulse mb-4 text-xl font-black">LOADING CAMPUS...</div>
+        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-blue-500 animate-progress origin-left"></div>
+        </div>
+      </div>
+    );
   }
   
   if (!user) {
@@ -29,7 +27,6 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// 2. The Main App Logic
 function App() {
   return (
     <AuthProvider>
@@ -47,11 +44,9 @@ function App() {
         >
           {/* These render INSIDE the Layout's <Outlet/> */}
           <Route path="/" element={<Discovery />} />
-          
-          {/* Placeholders for sidebar links */}
-          <Route path="/chat" element={<Placeholder title="Chat Feed" />} />
-          <Route path="/find" element={<Placeholder title="Find People" />} />
-          <Route path="/settings" element={<Placeholder title="Settings" />} />
+          <Route path="/chat" element={<Placeholder title="Group Chats" subtitle="Temporary 1-hour rooms" />} />
+          <Route path="/find" element={<Placeholder title="Find Friends" subtitle="Swipe to connect" />} />
+          <Route path="/settings" element={<Placeholder title="Profile Settings" subtitle="Manage your campus ID" />} />
         </Route>
 
         {/* Catch-all */}
@@ -61,19 +56,22 @@ function App() {
   );
 }
 
-// Helper: Redirects logged-in users to Dashboard if they try to go to /login
+// Helper: Redirects logged-in users away from Login page
 const LoginWrapper = () => {
   const { user, loading } = useAuth();
-  if (loading) return null; // Wait for check
+  if (loading) return null; 
   if (user) return <Navigate to="/" />;
   return <Login />;
 };
 
-// Helper: Simple Placeholder for empty pages
-const Placeholder = ({ title }) => (
-  <div style={{ padding: "50px", color: "white", textAlign: "center" }}>
-    <h1 style={{ color: "#00d4ff" }}>{title}</h1>
-    <p style={{ opacity: 0.7 }}>Coming Soon</p>
+// Helper: Modern Styled Placeholder for empty pages
+const Placeholder = ({ title, subtitle }) => (
+  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-10">
+    <h1 className="text-5xl font-black text-blue-400 mb-2">{title}</h1>
+    <p className="text-slate-400 text-lg font-medium italic">{subtitle || "Coming Soon"}</p>
+    <div className="mt-8 px-6 py-2 border border-white/10 bg-white/5 rounded-full text-xs uppercase tracking-widest text-slate-500">
+      Feature Under Development
+    </div>
   </div>
 );
 

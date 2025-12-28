@@ -17,15 +17,16 @@ export const loginStudent = async (email, password, regNo) => {
   const docSnap = await getDoc(docRef);
 
   if (!docSnap.exists()) {
-    throw new Error("Registration number not found! Contact Admin.");
+    throw new Error("Registration number not found! Contact Admin.😒");
   }
 
   const studentData = docSnap.data();
 
   // 2. Prevent login if already marked as registered (active session)
   if (studentData.is_registered === true) {
-    throw new Error("This registration is already logged in elsewhere.");
+    throw new Error("This registration is already logged in elsewhere.😏");
   }
+  
 
   // 3. Authenticate with Firebase Auth
   try {
