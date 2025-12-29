@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, useLocation, Link, useNavigate } from "react-router-dom"; 
 import { Search, MessageSquare, Users, Settings, LogOut, Hexagon, User, Menu } from "lucide-react"; 
 import { useAuth } from "../context/mainContext"; 
@@ -6,47 +6,56 @@ import { useAuth } from "../context/mainContext";
 const Layout = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  // NEW: State to track if mouse is over the menu button
+  // State for Sidebar & Mobile Check
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isMenuHovered, setIsMenuHovered] = useState(false);
+
+  // 1. MOBILE RESPONSIVENESS LISTENER
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Auto-close sidebar on mobile, Auto-open on desktop
+      if (mobile) setIsSidebarOpen(false);
+      else setIsSidebarOpen(true);
+    };
+
+    window.addEventListener("resize", handleResize);
+    handleResize(); // Run once on mount
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleLogout = async () => {
       await logout();
       navigate("/login");
   };
 
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
   return (
     <div style={{ height: "100vh", width: "100vw", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       
-      {/* 1. TOP NAVBAR */}
+      {/* --- TOP NAVBAR --- */}
       <header style={{ 
           height: "70px", width: "100%", 
-          background: "rgba(19, 20, 31, 0.9)", 
+          background: "rgba(19, 20, 31, 0.95)", // Slightly more opaque for mobile
           borderBottom: "1px solid rgba(255,255,255,0.05)",
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 20px", boxSizing: "border-box", zIndex: 100
+          padding: "0 20px", boxSizing: "border-box", zIndex: 60 // Higher than sidebar
       }}>
-          {/* LEFT: Menu Button + Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-              
-              {/* THE MENU TOGGLE BUTTON (Updated) */}
+              {/* Menu Toggle */}
               <button 
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                onMouseEnter={() => setIsMenuHovered(true)}  // <--- Hover Start
-                onMouseLeave={() => setIsMenuHovered(false)} // <--- Hover End
+                onClick={toggleSidebar}
+                onMouseEnter={() => setIsMenuHovered(true)}
+                onMouseLeave={() => setIsMenuHovered(false)}
                 style={{ 
-                    background: isMenuHovered ? "rgba(255,255,255,0.1)" : "transparent", // <--- The "You Know What I Mean" Effect
-                    border: "none", 
-                    outline: "none", // <--- Kills the white border
-                    cursor: "pointer", 
-                    display: "flex", 
-                    alignItems: "center", 
-                    justifyContent: "center",
-                    color: "white",
-                    padding: "8px",       // <--- Makes the hover area square/nice
-                    borderRadius: "8px",  // <--- Smooth corners
-                    transition: "all 0.2s"
+                    background: isMenuHovered ? "rgba(255,255,255,0.1)" : "transparent",
+                    border: "none", outline: "none", cursor: "pointer", 
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "white", padding: "8px", borderRadius: "8px", transition: "all 0.2s"
                 }}
               >
                   <Menu size={24} />
@@ -61,35 +70,43 @@ const Layout = () => {
               </Link>
           </div>
 
-          {/* RIGHT: Profile Icon */}
           <Link to="/profile" style={{ display: "flex", alignItems: "center", gap: "15px", textDecoration: "none", cursor: "pointer" }}>
-             <div style={{ textAlign: "right", display: "none", md: "block" }}>
-                <div style={{ color: "white", fontWeight: "600", fontSize: "14px" }}>My Profile</div>
-                <div style={{ color: "#00ff88", fontSize: "12px" }}>Online</div>
-             </div>
-             <div style={{ 
-                 width: "40px", height: "40px", borderRadius: "50%", 
-                 background: "#333", border: "2px solid #05d9e8",
-                 display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden"
-             }}>
+             {/* Hide Name on Mobile to save space */}
+             {!isMobile && (
+                 <div style={{ textAlign: "right" }}>
+                    <div style={{ color: "white", fontWeight: "600", fontSize: "14px" }}>My Profile</div>
+                    <div style={{ color: "#00ff88", fontSize: "12px" }}>Online</div>
+                 </div>
+             )}
+             <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#333", border: "2px solid #05d9e8", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                  <User size={24} color="white" />
              </div>
           </Link>
       </header>
 
-      {/* 2. BODY */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      {/* --- BODY AREA --- */}
+      <div style={{ flex: 1, display: "flex", position: "relative", overflow: "hidden" }}>
           
+          {/* SIDEBAR */}
           <aside style={{ 
+              // RESPONSIVE LOGIC:
+              // Mobile: Fixed Position (Floating overlay)
+              // Desktop: Relative Position (Push content)
+              position: isMobile ? "absolute" : "relative",
+              zIndex: 50,
+              height: "100%",
+              
               width: isSidebarOpen ? "260px" : "0px", 
               padding: isSidebarOpen ? "30px 20px" : "30px 0px", 
               opacity: isSidebarOpen ? 1 : 0, 
+              
               background: "#0b0c15", 
               borderRight: "1px solid rgba(255,255,255,0.05)", 
               display: "flex", flexDirection: "column", 
               overflow: "hidden", 
-              transition: "all 0.5s ease", 
-              whiteSpace: "nowrap" 
+              transition: "all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)", // Smooth "Drawer" feel
+              whiteSpace: "nowrap",
+              boxShadow: isMobile && isSidebarOpen ? "5px 0 15px rgba(0,0,0,0.5)" : "none"
           }}>
             <nav style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
               <NavItem to="/" icon={<Search size={20} />} label="Discover" isOpen={isSidebarOpen} />
@@ -111,7 +128,16 @@ const Layout = () => {
             </button>
           </aside>
 
-          <main style={{ flex: 1, position: "relative", overflow: "hidden", padding: "20px 20px 0 20px", transition: "all 0.5s ease" }}>
+          {/* MAIN CONTENT BACKDROP (Mobile Only - Click to close sidebar) */}
+          {isMobile && isSidebarOpen && (
+              <div 
+                  onClick={() => setIsSidebarOpen(false)}
+                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(0,0,0,0.6)", zIndex: 40, backdropFilter: "blur(3px)" }}
+              />
+          )}
+
+          {/* CONTENT */}
+          <main style={{ flex: 1, position: "relative", overflow: "hidden", padding: isMobile ? "10px" : "20px 20px 0 20px", transition: "all 0.5s ease" }}>
             <Outlet /> 
           </main>
 
@@ -134,12 +160,7 @@ const NavItem = ({ to, icon, label, isOpen }) => {
       whiteSpace: "nowrap"
     }}>
       {icon}
-      <span style={{ 
-          fontWeight: isActive ? "600" : "400", 
-          opacity: isOpen ? 1 : 0, 
-          transition: "opacity 0.3s ease",
-          transitionDelay: isOpen ? "0.2s" : "0s" 
-      }}>
+      <span style={{ fontWeight: isActive ? "600" : "400", opacity: isOpen ? 1 : 0, transition: "opacity 0.3s ease", transitionDelay: isOpen ? "0.2s" : "0s" }}>
           {label}
       </span>
     </Link>
