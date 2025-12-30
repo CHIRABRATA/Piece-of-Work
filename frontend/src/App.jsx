@@ -1,16 +1,17 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/mainContext";
-import Layout from "./components/Layout"; 
-import Discovery from "./pages/Discovery"; 
-import Login from "./pages/Login"; 
+import Layout from "./components/Layout";
+import Discovery from "./pages/Discovery";
+import Login from "./pages/Login";
 import Chat from "./pages/Chat";
 import Find from "./pages/Find";
 import Profile from "./pages/Profile";
+import EditProfile from "./pages/EditProfile";
 
 // 1. The Bouncer (Security Check)
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       /* Replaced inline styles with Tailwind for a modern dark-mode loader */
@@ -22,11 +23,11 @@ const ProtectedRoute = ({ children }) => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" />;
   }
-  
+
   return children;
 };
 
@@ -38,18 +39,19 @@ function App() {
         <Route path="/login" element={<LoginWrapper />} />
 
         {/* PROTECTED: The Dashboard */}
-        <Route 
+        <Route
           element={
             // <ProtectedRoute>
-              <Layout />
+            <Layout />
             // </ProtectedRoute>
           }
         >
           {/* These render INSIDE the Layout's <Outlet/> */}
           <Route path="/" element={<Discovery />} />
-          <Route path="/chat" element= {<Chat/>}/>
-          <Route path="/find" element={<Find/>} />
-          <Route path="/profile" element={<Profile />}/>
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/find" element={<Find />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/edit-profile" element={<EditProfile />} />
           <Route path="/settings" element={<Placeholder title="Profile Settings" subtitle="Manage your campus ID" />} />
         </Route>
 
@@ -63,7 +65,7 @@ function App() {
 // Helper: Redirects logged-in users away from Login page
 const LoginWrapper = () => {
   const { user, loading } = useAuth();
-  if (loading) return null; 
+  if (loading) return null;
   if (user) return <Navigate to="/" />;
   return <Login />;
 };
