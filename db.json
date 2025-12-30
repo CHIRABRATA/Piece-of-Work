@@ -1,0 +1,20 @@
+{
+  "profiles": {
+    "default": {
+      "name": "Anirban Sarkar",
+      "regNo": "241001001218",
+      "major": "Computer Science",
+      "year": "2nd Year",
+      "batch": "2024-28",
+      "branch": "CSE",
+      "bio": "Coder / Innovator / Troubleshooter",
+      "interests": "Coding, AI-ML, Football, Books, Physics",
+      "photoUrl": "https://share.google/8L3zm83bBOm3eD8yd",
+      "stats": {
+        "matches": 42,
+        "views": 1050,
+        "likes": 305
+      }
+    }
+  }
+}
