@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../conf/firebase";
-import { loginStudent, logoutStudent } from "../services/authService";
+import { loginStudent, logoutStudent } from "../services/Authservice.js";
 
 const AuthContext = createContext();
 

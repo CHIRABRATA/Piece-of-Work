@@ -14,7 +14,6 @@ const ProtectedRoute = ({ children }) => {
 
   if (loading) {
     return (
-      /* Replaced inline styles with Tailwind for a modern dark-mode loader */
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-blue-400 font-sans tracking-[0.2em]">
         <div className="animate-pulse mb-4 text-xl font-black">LOADING CAMPUS...</div>
         <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
@@ -25,7 +24,7 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />; // Use 'replace' to prevent back-button loops
   }
 
   return children;
@@ -41,43 +40,35 @@ function App() {
         {/* PROTECTED: The Dashboard */}
         <Route
           element={
-            // <ProtectedRoute>
-            <Layout />
-            // </ProtectedRoute>
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
           }
         >
-          {/* These render INSIDE the Layout's <Outlet/> */}
           <Route path="/" element={<Discovery />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/find" element={<Find />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/edit-profile" element={<EditProfile />} />
+          <Route path="/chat" element={<Chat/>}/>
+          <Route path="/find" element={<Find/>} />
+          <Route path="/profile" element={<Profile />}/>
           <Route path="/settings" element={<Placeholder title="Profile Settings" subtitle="Manage your campus ID" />} />
         </Route>
 
-        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </AuthProvider>
   );
 }
 
-// Helper: Redirects logged-in users away from Login page
 const LoginWrapper = () => {
   const { user, loading } = useAuth();
-  if (loading) return null;
-  if (user) return <Navigate to="/" />;
+  if (loading) return null; 
+  if (user) return <Navigate to="/" replace />;
   return <Login />;
 };
 
-// Helper: Modern Styled Placeholder for empty pages
 const Placeholder = ({ title, subtitle }) => (
   <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-10">
     <h1 className="text-5xl font-black text-blue-400 mb-2">{title}</h1>
     <p className="text-slate-400 text-lg font-medium italic">{subtitle || "Coming Soon"}</p>
-    <div className="mt-8 px-6 py-2 border border-white/10 bg-white/5 rounded-full text-xs uppercase tracking-widest text-slate-500">
-      Feature Under Development
-    </div>
   </div>
 );
 
