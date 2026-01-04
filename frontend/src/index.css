@@ -1,14 +1,18 @@
 @import "tailwindcss";
+
 @keyframes blob {
   0% {
     transform: translate(0px, 0px) scale(1);
   }
+
   33% {
     transform: translate(30px, -50px) scale(1.1);
   }
+
   66% {
     transform: translate(-20px, 20px) scale(0.9);
   }
+
   100% {
     transform: translate(0px, 0px) scale(1);
   }
@@ -30,25 +34,43 @@
 }
 
 @keyframes blob {
-  0%, 100% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
+
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
 }
 
 .animate-blob {
   animation: blob 7s infinite;
 }
 
-.animation-delay-2000 { animation-delay: 2s; }
-.animation-delay-4000 { animation-delay: 4s; }
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
 
-html, body, #root {
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   background-color: var(--color-slate-950);
   color: white;
   overflow-x: hidden;
 }
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -69,6 +91,7 @@ a {
   color: #646cff;
   text-decoration: inherit;
 }
+
 a:hover {
   color: #535bf2;
 }
@@ -97,9 +120,11 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
   border-color: #646cff;
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -110,9 +135,11 @@ button:focus-visible {
     color: #213547;
     background-color: #ffffff;
   }
+
   a:hover {
     color: #747bff;
   }
+
   button {
     background-color: #f9f9f9;
   }
@@ -131,7 +158,8 @@ body {
   background-color: var(--bg-dark);
   font-family: 'Inter', system-ui, sans-serif;
   color: white;
-  overflow: hidden; /* Prevent scroll on mobile */
+  overflow: hidden;
+  /* Prevent scroll on mobile */
 }
 
 /* The Glassmorphism Utility */
@@ -145,13 +173,22 @@ body {
 
 /* Neon Glow Animation */
 @keyframes pulse-glow {
-  0% { box-shadow: 0 0 10px rgba(0, 212, 255, 0.2); }
-  50% { box-shadow: 0 0 25px rgba(0, 212, 255, 0.5); }
-  100% { box-shadow: 0 0 10px rgba(0, 212, 255, 0.2); }
+  0% {
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 25px rgba(0, 212, 255, 0.5);
+  }
+
+  100% {
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+  }
 }
 
 :root {
-  --bg-dark: #050511; /* Deeper, richer black-blue */
+  --bg-dark: #050511;
+  /* Deeper, richer black-blue */
   --neon-blue: #00d4ff;
   --neon-pink: #ff007f;
 }
@@ -161,14 +198,16 @@ body {
   background-color: var(--bg-dark);
   font-family: 'Inter', system-ui, sans-serif;
   color: white;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* THE MAGIC: Ambient Background Blobs */
 .ambient-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px); /* This makes it look like a glow */
+  filter: blur(80px);
+  /* This makes it look like a glow */
   opacity: 0.4;
   z-index: 0;
   pointer-events: none;
@@ -193,13 +232,24 @@ body {
 }
 
 @keyframes float {
-  0% { transform: translate(0, 0); }
-  50% { transform: translate(30px, 50px); }
-  100% { transform: translate(0, 0); }
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(30px, 50px);
+  }
+
+  100% {
+    transform: translate(0, 0);
+  }
 }
+
 :root {
-  --bg-dark: #0b0c15; /* Deep Navy Black */
-  --panel-bg: #13141f; /* Slightly lighter for cards */
+  --bg-dark: #0b0c15;
+  /* Deep Navy Black */
+  --panel-bg: #13141f;
+  /* Slightly lighter for cards */
   --neon-pink: #ff2a6d;
   --neon-blue: #05d9e8;
   --text-main: #ffffff;
@@ -211,7 +261,8 @@ body {
   background-color: var(--bg-dark);
   font-family: 'Inter', sans-serif;
   color: var(--text-main);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* The Dashboard Card Style */
@@ -219,7 +270,7 @@ body {
   background: var(--panel-bg);
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   overflow: hidden;
 }
 

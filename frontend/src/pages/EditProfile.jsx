@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, X, Camera, Plus, Trash2 } from "lucide-react";
+import { Save, X, Camera } from "lucide-react";
 import { useAuth } from "../context/mainContext";
+import { getUserProfile, updateUserProfile } from "../services/profileService";
 
 const EditProfile = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
+
+    // We start with initialized state to avoid uncontrolled inputs
     const [formData, setFormData] = useState({
         name: "",
         regNo: "",
@@ -21,20 +24,27 @@ const EditProfile = () => {
     });
 
     useEffect(() => {
-        // Fetch current profile from local API
         const fetchProfile = async () => {
+            if (!user?.uid) {
+                setLoading(false);
+                return;
+            }
+
             try {
-                const res = await fetch('/api/profile');
-                if (res.ok) {
-                    const data = await res.json();
-                    // For simplicity, we use 'default' or user.uid if available
-                    const profile = data.profiles[user?.uid || 'default'];
-                    if (profile) {
-                        setFormData({
-                            ...profile,
-                            interests: Array.isArray(profile.interests) ? profile.interests.join(", ") : (profile.interests || "")
-                        });
-                    }
+                const profile = await getUserProfile(user.uid);
+                if (profile) {
+                    setFormData({
+                        name: profile.name || "",
+                        regNo: profile.regNo || "",
+                        photoUrl: profile.photoUrl || "",
+                        bio: profile.bio || "",
+                        interests: Array.isArray(profile.interests) ? profile.interests.join(", ") : (profile.interests || ""),
+                        year: profile.year || "1st Year",
+                        batch: profile.batch || "2024",
+                        branch: profile.branch || "CSE",
+                        clubs: profile.clubs || "",
+                        skills: profile.skills || "",
+                    });
                 }
             } catch (err) {
                 console.error("Failed to fetch profile:", err);
@@ -56,27 +66,17 @@ const EditProfile = () => {
         setLoading(true);
 
         try {
-            const payload = {
-                profiles: {
-                    [user?.uid || 'default']: {
-                        ...formData,
-                        // Calculate stats if they don't exist
-                        stats: formData.stats || { matches: 0, views: 0, likes: 0 }
-                    }
-                }
+            // Convert comma separated interests to array
+            const interestsArray = formData.interests.split(',').map(i => i.trim()).filter(i => i);
+
+            // Prepare update payload
+            const updates = {
+                ...formData,
+                interests: interestsArray
             };
 
-            const res = await fetch('/api/profile', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                navigate("/profile");
-            } else {
-                alert("Failed to save profile");
-            }
+            await updateUserProfile(user.uid, updates);
+            navigate("/profile");
         } catch (err) {
             console.error("Error saving profile:", err);
             alert("Error saving profile");
@@ -85,7 +85,7 @@ const EditProfile = () => {
         }
     };
 
-    if (loading && !formData.name) return <div className="flex items-center justify-center h-full text-white">Loading Profile...</div>;
+    if (loading) return <div className="flex items-center justify-center h-full text-white">Loading Profile...</div>;
 
     return (
         <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto", height: "100%", overflowY: "auto", color: "white" }}>
@@ -102,7 +102,7 @@ const EditProfile = () => {
                     <div className="relative group">
                         <div style={{
                             width: "120px", height: "120px", borderRadius: "50%",
-                            backgroundImage: `url(${formData.photoUrl || 'https://via.placeholder.com/150'})`,
+                            backgroundImage: `url(${formData.photoUrl || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'})`,
                             backgroundSize: "cover", backgroundPosition: "center",
                             border: "4px solid #05d9e8"
                         }} />
@@ -129,7 +129,7 @@ const EditProfile = () => {
                         name="branch"
                         value={formData.branch}
                         onChange={handleChange}
-                        options={["Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil", "Electrical"]}
+                        options={["CSE", "IT", "ECE", "MECH", "CIVIL", "EEE", "Computer Science", "Information Technology"]}
                     />
 
                     <div className="grid grid-cols-2 gap-4">
@@ -140,18 +140,13 @@ const EditProfile = () => {
                             onChange={handleChange}
                             options={["1st Year", "2nd Year", "3rd Year", "4th Year"]}
                         />
-                        <InputField label="Batch" name="batch" value={formData.batch} onChange={handleChange} placeholder="2024" />
+                        <InputField label="Batch" name="batch" value={formData.batch} onChange={handleChange} placeholder="2024-28" />
                     </div>
                 </div>
 
                 <TextAreaField label="Bio" name="bio" value={formData.bio} onChange={handleChange} placeholder="Tell us about yourself..." />
 
                 <InputField label="Interests (Comma separated)" name="interests" value={formData.interests} onChange={handleChange} placeholder="Coding, Music, Gaming..." />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <InputField label="Clubs & Societies" name="clubs" value={formData.clubs} onChange={handleChange} placeholder="Hacker Club, Drama Soc..." />
-                    <InputField label="Tech Skills" name="skills" value={formData.skills} onChange={handleChange} placeholder="React, Python, Figma..." />
-                </div>
 
                 <div className="pt-8 flex gap-4">
                     <button
@@ -209,9 +204,9 @@ const SelectField = ({ label, name, value, onChange, options }) => (
             name={name}
             value={value}
             onChange={onChange}
-            className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-400 transition"
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-400 transition text-white"
         >
-            {options.map(opt => <option key={opt} value={opt} className="bg-slate-900">{opt}</option>)}
+            {options.map(opt => <option key={opt} value={opt} className="bg-slate-900 text-white">{opt}</option>)}
         </select>
     </div>
 );
