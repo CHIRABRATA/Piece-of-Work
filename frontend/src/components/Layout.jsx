@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Outlet, useLocation, Link, useNavigate } from "react-router-dom"; 
 import { Search, MessageSquare, Users, Settings, LogOut, Hexagon, User, Menu } from "lucide-react"; 
 import { useAuth } from "../context/mainContext"; 
+import NotificationPopup from "./NotificationsPopup";
 
 const Layout = () => {
   const { logout } = useAuth();
@@ -86,7 +87,7 @@ const Layout = () => {
 
       {/* --- BODY AREA --- */}
       <div style={{ flex: 1, display: "flex", position: "relative", overflow: "hidden" }}>
-          
+          <NotificationPopup/>
           {/* SIDEBAR */}
           <aside style={{ 
               // RESPONSIVE LOGIC:
@@ -112,6 +113,7 @@ const Layout = () => {
               <NavItem to="/" icon={<Search size={20} />} label="Discover" isOpen={isSidebarOpen} />
               <NavItem to="/chat" icon={<MessageSquare size={20} />} label="Chat Feed" isOpen={isSidebarOpen} />
               <NavItem to="/find" icon={<Users size={20} />} label="Find People" isOpen={isSidebarOpen} />
+              <NavItem to="/requests" icon={<Users size={20} />} label="Friend requests" isOpen={isSidebarOpen} />
               <NavItem to="/profile" icon={<Settings size={20} />} label="Settings" isOpen={isSidebarOpen} />
             </nav>
 

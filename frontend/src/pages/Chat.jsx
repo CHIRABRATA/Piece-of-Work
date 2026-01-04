@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Hash, Send, MoreVertical, Phone, Video, MessageSquare, ArrowLeft } from "lucide-react"; // Added ArrowLeft
+import { Search, Hash, Send, MoreVertical, MessageSquare, ArrowLeft } from "lucide-react"; 
 import { useLocation } from "react-router-dom"; 
 
 // Data
@@ -20,8 +20,6 @@ const Chat = () => {
   const [channels, setChannels] = useState(INITIAL_PUBLIC_CHANNELS); 
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState("");
-  
-  // Responsive State
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const location = useLocation(); 
@@ -33,34 +31,36 @@ const Chat = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Handle incoming navigation (from Find/Discovery)
+  // --- FIXED NAVIGATION HANDLER ---
   useEffect(() => {
     const state = location.state;
     if (!state) return;
 
-    // CASE 1: Start Private Chat
-    if (state.startChatWith) {
-        const newUser = state.startChatWith;
+    // CASE 1: Start Private Chat (from Find/Requests)
+    if (state.selectedUser) {
+        const newUser = state.selectedUser;
         setActiveTab("private");
+
+        // Create the chat object format
+        const chatObject = {
+            id: String(newUser.uid), // Ensure ID matches what you send
+            name: newUser.name,
+            lastMsg: "Start a conversation",
+            time: "Now",
+            unread: 0,
+            photoUrl: newUser.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+            online: true 
+        };
+
+        // Update contacts list if not already there
         setContacts(prev => {
-            const exists = prev.find(c => String(c.id) === String(newUser.id) || c.name === newUser.name);
-            if (exists) return prev;
-            
-            const newContact = {
-                id: String(newUser.id), 
-                name: newUser.name,
-                lastMsg: "Start a conversation",
-                time: "Now",
-                unread: 0,
-                photoUrl: newUser.photoUrl,
-                online: newUser.status === 'Online'
-            };
-            return [newContact, ...prev];
+            const exists = prev.find(c => String(c.id) === String(newUser.uid));
+            if (exists) return prev; 
+            return [chatObject, ...prev];
         });
-        setTimeout(() => {
-             const existing = contacts.find(c => String(c.id) === String(newUser.id));
-             setSelectedChat(existing || { id: String(newUser.id), name: newUser.name, lastMsg: "", time: "", unread: 0, photoUrl: newUser.photoUrl, online: newUser.status === 'Online' });
-        }, 50);
+
+        // FORCE OPEN THE CHAT
+        setSelectedChat(chatObject);
     }
 
     // CASE 2: Join Public Channel
@@ -72,16 +72,14 @@ const Chat = () => {
             if (exists) return prev;
             return [...prev, group];
         });
-        setTimeout(() => setSelectedChat(group), 50);
+        setSelectedChat(group);
     }
+    
+    // Clear state so refresh doesn't re-trigger
     window.history.replaceState({}, document.title);
   }, [location.state]);
 
   const chatList = activeTab === "private" ? contacts : channels;
-
-  // VIEW LOGIC:
-  // Mobile: If selectedChat is null -> Show List. If not null -> Show Chat.
-  // Desktop: Always show both.
   const showList = !isMobile || (isMobile && !selectedChat);
   const showChatWindow = !isMobile || (isMobile && selectedChat);
 
@@ -191,11 +189,11 @@ const Chat = () => {
                 </div>
 
                 <div style={{ flex: 1, padding: "20px", display: "flex", flexDirection: "column", justifyContent: "flex-end", color: "#666", overflowY: "auto", minHeight: 0 }}>
-                     <div style={{ textAlign: "center", marginTop: "auto", marginBottom: "auto" }}>
+                      <div style={{ textAlign: "center", marginTop: "auto", marginBottom: "auto" }}>
                             <p style={{ color: "#aaa" }}>
                                 {activeTab === 'private' ? `Start conversation with ${selectedChat.name}` : `Welcome to #${selectedChat.name}`}
                             </p>
-                     </div>
+                      </div>
                 </div>
 
                 <div style={{ padding: "20px", background: "rgba(0,0,0,0.2)" }}>
@@ -212,7 +210,7 @@ const Chat = () => {
                 </div>
               </>
             ) : (
-              // Empty State (Only shows on Desktop, because on mobile we hide this column if null)
+              // Empty State 
               <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#6c757d" }}>
                   <MessageSquare size={60} style={{ marginBottom: "20px", opacity: 0.5 }} />
                   <h2 style={{ margin: 0, color: "white" }}>Select a Conversation</h2>

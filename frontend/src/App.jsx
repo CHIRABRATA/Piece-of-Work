@@ -7,6 +7,7 @@ import Chat from "./pages/Chat";
 import Find from "./pages/Find";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
+import Requests from "./pages/Requests";
 
 // 1. The Bouncer (Security Check)
 const ProtectedRoute = ({ children }) => {
@@ -49,6 +50,7 @@ function App() {
           <Route path="/chat" element={<Chat/>}/>
           <Route path="/find" element={<Find/>} />
           <Route path="/profile" element={<Profile />}/>
+          <Route path="/requests" element={<Requests />} />
           <Route path="/settings" element={<Placeholder title="Profile Settings" subtitle="Manage your campus ID" />} />
         </Route>
 
