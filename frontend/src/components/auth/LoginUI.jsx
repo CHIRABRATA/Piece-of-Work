@@ -1,9 +1,8 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const LoginUI = ({ regNo, setRegNo, email, setEmail, password, setPassword, error, isSubmitting, handleSubmit }) => {
+const LoginUI = ({ regNo, setRegNo, email, setEmail, password, setPassword, error, isSubmitting, handleSubmit, toggleView }) => {
   return (
-    // We remove the centering classes here so the parent Login.jsx can control placement
     <div className="w-full selection:bg-purple-500/30">
       
       {/* Login Card with Shake Animation on Error */}
@@ -85,6 +84,18 @@ const LoginUI = ({ regNo, setRegNo, email, setEmail, password, setPassword, erro
             ) : "Enter Campus"}
           </motion.button>
         </form>
+
+        {/* Toggle View Link */}
+        <p className="mt-8 text-center text-slate-500 text-sm">
+          Don't have an account?{" "}
+          <button 
+            type="button" 
+            onClick={toggleView} 
+            className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
+          >
+            Create one
+          </button>
+        </p>
 
         {/* Footer Text */}
         <footer className="mt-12 text-center">

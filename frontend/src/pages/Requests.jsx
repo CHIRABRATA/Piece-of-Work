@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/mainContext";
 import { db } from "../conf/firebase";
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
-import { Check, X, MessageCircle, UserMinus, Search, User } from "lucide-react"; // Changed Trash2 to UserMinus
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc, addDoc, serverTimestamp } from "firebase/firestore";
+import { Check, X, MessageCircle, UserMinus, Search, Users as UsersIcon, Clock } from "lucide-react"; // Changed Trash2 to UserMinus
 import { useNavigate } from "react-router-dom";
 
 const Requests = () => {
@@ -12,6 +12,17 @@ const Requests = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [acceptedRequests, setAcceptedRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Context menu / modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTarget, setModalTarget] = useState(null);
+
+  // Group selection
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // Temporary groups persisted in Firestore; no local list
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -83,6 +94,68 @@ const Requests = () => {
       });
   };
 
+  const openContextMenu = (friend) => {
+    setModalTarget(friend);
+    setModalOpen(true);
+  };
+
+  const closeContextMenu = () => {
+    setModalOpen(false);
+    setModalTarget(null);
+  };
+
+  const startIndividualMessage = () => {
+    if (!modalTarget) return;
+    try {
+      handleMessage(modalTarget);
+    } catch {
+      setError("Failed to open chat");
+      setTimeout(() => setError(""), 2000);
+    } finally {
+      closeContextMenu();
+    }
+  };
+
+  const addToGroup = () => {
+    if (!modalTarget) return;
+    setSelectionMode(true);
+    setSelectedIds(prev => {
+      if (prev.includes(modalTarget.targetId)) return prev;
+      return [...prev, modalTarget.targetId];
+    });
+    closeContextMenu();
+  };
+
+  const toggleSelect = (friend) => {
+    if (!selectionMode) return openContextMenu(friend);
+    setSelectedIds(prev => prev.includes(friend.targetId) ? prev.filter(id => id !== friend.targetId) : [...prev, friend.targetId]);
+  };
+
+  const createGroup = () => {
+    if (selectedIds.length < 2) return;
+    (async () => {
+      try {
+        const name = `Temp Group (${selectedIds.length})`;
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
+        const docRef = await addDoc(collection(db, "chatroom"), {
+          type: "group",
+          name,
+          participants: [user.uid, ...selectedIds],
+          createdAt: serverTimestamp(),
+          expiresAt: expires
+        });
+        navigate('/chat', { state: { openChatId: docRef.id } });
+        setSelectionMode(false);
+        setSelectedIds([]);
+      } catch {
+        setError("Failed to create group");
+        setTimeout(() => setError(""), 2000);
+      }
+    })();
+  };
+
+  // Group expiration handled in Chat by filtering expiresAt
+
   // --- FORCE ICON SIZE STYLE ---
   const iconSize = { width: "20px", height: "20px", minWidth: "20px", flexShrink: 0 };
 
@@ -104,6 +177,17 @@ const Requests = () => {
         <Search style={{ width: "20px", height: "20px" }} />
         <span>Search {activeTab}...</span>
       </div>
+
+      {loading && (
+        <div role="status" aria-live="polite" style={{ background: "rgba(255,255,255,0.06)", color: "#aaa", padding: "10px", borderRadius: "10px", marginBottom: "10px" }}>
+          Loading...
+        </div>
+      )}
+      {error && (
+        <div role="status" aria-live="polite" style={{ background: "#ff2a6d", color: "white", padding: "10px", borderRadius: "10px", marginBottom: "10px" }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         
@@ -134,29 +218,104 @@ const Requests = () => {
         {/* CONNECTIONS LIST */}
         {activeTab === "connections" && (
             acceptedRequests.length === 0 ? <div style={emptyStyle}>No connections yet.</div> : 
-            acceptedRequests.map(req => (
-                <div key={req.id} style={rowStyle}>
+            <>
+              {/* Slider view */}
+              <div style={{ display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "8px" }} aria-label="Connections slider" role="list">
+                {acceptedRequests.map(req => (
+                  <button
+                    key={`${req.id}-slide`}
+                    onClick={() => toggleSelect(req)}
+                    aria-label={`Open actions for ${req.name}`}
+                    style={{
+                      minWidth: "140px",
+                      background: selectedIds.includes(req.targetId) ? "rgba(5, 217, 232, 0.15)" : "rgba(255,255,255,0.06)",
+                      border: selectedIds.includes(req.targetId) ? "1px solid #05d9e8" : "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "16px",
+                      padding: "12px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <div style={{ position: "relative", marginBottom: "8px" }}>
+                      <img src={req.photo || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} alt={req.name} style={{ width: "60px", height: "60px", borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.1)" }} />
+                      {selectionMode && selectedIds.includes(req.targetId) && (
+                        <div style={{ position: "absolute", right: -4, bottom: -4, background: "#05d9e8", width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "black", fontWeight: "900", border: "2px solid #13141f" }}>
+                          ✓
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: "700", fontSize: "13px", color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{req.name}</div>
+                    <div style={{ fontSize: "11px", color: "#aaa" }}>{req.bio}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Vertical list with actions */}
+              {acceptedRequests.map(req => (
+                <div key={req.id} style={{ ...rowStyle, position: "relative" }}>
                     <div style={userGroupStyle}>
-                        <img src={req.photo || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} style={avatarStyle} />
+                        <img src={req.photo || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} style={avatarStyle} alt={req.name} />
                         <div>
                             <div style={nameStyle}>{req.name}</div>
                             <div style={bioStyle}>{req.bio}</div>
                         </div>
                     </div>
                     <div style={{ display: "flex", gap: "12px" }}>
+                        <button onClick={() => openContextMenu(req)} style={{ ...messageBtnStyle, background: "#2A2B36", color: "white" }} title="Actions" aria-haspopup="dialog">
+                            <UsersIcon style={iconSize} strokeWidth={2.5} />
+                        </button>
                         <button onClick={() => handleMessage(req)} style={messageBtnStyle} title="Message">
                             <MessageCircle style={iconSize} strokeWidth={2.5} />
                         </button>
-                        
-                        {/* UNFRIEND BUTTON (UserMinus) */}
                         <button onClick={() => handleUnfriend(req.id)} style={unfriendBtnStyle} title="Unfriend">
                             <UserMinus style={iconSize} strokeWidth={2.5} />
                         </button>
                     </div>
                 </div>
-            ))
+              ))}
+
+              {/* Create Group Floating Bar */}
+              {selectionMode && (
+                <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "#0b0c15", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "12px", zIndex: 50 }}>
+                  <span style={{ fontSize: "12px", color: "#aaa" }}>Selected: {selectedIds.length}</span>
+                  <button onClick={() => setSelectionMode(false)} style={{ ...baseBtn, width: "auto", height: "36px", background: "#2A2B36", color: "white", padding: "0 12px" }}>Cancel</button>
+                  <button onClick={createGroup} disabled={selectedIds.length < 2} style={{ ...baseBtn, width: "auto", height: "36px", background: selectedIds.length >= 2 ? "#05D9E8" : "rgba(5,217,232,0.2)", color: selectedIds.length >= 2 ? "black" : "#aaa", padding: "0 12px", fontWeight: "700" }}>
+                    Create Group
+                  </button>
+                </div>
+              )}
+
+              {/* Temporary groups now persisted and shown in Chat; no local list */}
+            </>
         )}
       </div>
+
+      {/* Context Menu Modal */}
+      {modalOpen && modalTarget && (
+        <div role="dialog" aria-modal="true" aria-label="Actions" onClick={closeContextMenu} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "90%", maxWidth: "360px", background: "#0b0c15", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px", padding: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+              <img src={modalTarget.photo || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} alt={modalTarget.name} style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }} />
+              <div>
+                <div style={{ color: "white", fontWeight: "800" }}>{modalTarget.name}</div>
+                <div style={{ color: "#aaa", fontSize: "12px" }}>{modalTarget.bio}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button onClick={startIndividualMessage} style={{ ...baseBtn, width: "100%", height: "42px", background: "#05D9E8", color: "black", fontWeight: "800" }}>
+                Individual Message
+              </button>
+              <button onClick={addToGroup} style={{ ...baseBtn, width: "100%", height: "42px", background: "#ff2a6d", color: "white", fontWeight: "800" }}>
+                Add to Group
+              </button>
+              <button onClick={closeContextMenu} style={{ ...baseBtn, width: "100%", height: "38px", background: "rgba(255,255,255,0.06)", color: "white" }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Search, MessageCircle, MoreVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom"; 
-
-const ALL_STUDENTS = [
-  { id: "101", name: "Aisha Rahman", regNo: "2024CS01", major: "CSE", year: "3rd", status: "Online", photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80" },
-  { id: "102", name: "Rahul Verma", regNo: "2023IT99", major: "IT", year: "4th", status: "In Class", photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80" },
-  { id: "103", name: "Priya Singh", regNo: "2025ECE12", major: "ECE", year: "2nd", status: "Online", photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80" },
-  { id: "104", name: "Amit Patel", regNo: "2022MECH05", major: "Mech", year: "Final", status: "Offline", photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80" },
-  { id: "105", name: "Sneha Gupta", regNo: "2024CS45", major: "CSE", year: "3rd", status: "Online", photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80" },
-  { id: "106", name: "Vikram Malhotra", regNo: "2023EEE22", major: "EEE", year: "3rd", status: "Gym", photoUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80" },
-];
+import { useAuth } from "../context/mainContext";
+import { db } from "../conf/firebase";
+import { collection, onSnapshot } from "firebase/firestore";
 
 const Find = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -22,13 +19,42 @@ const Find = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const filteredStudents = ALL_STUDENTS.filter(student => 
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), (snap) => {
+      const list = [];
+      snap.forEach(d => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          name: data.Name || "Unknown",
+          regNo: data.regNo || "",
+          major: data.DEPT || "",
+          year: data.year || "",
+          status: "Online",
+          photoUrl: data.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+        });
+      });
+      setStudents(list.filter(s => s.id !== user?.uid));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [user]);
+
+  const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.regNo.toLowerCase().includes(searchQuery.toLowerCase())
+    (student.regNo || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleMessage = (student) => {
-      navigate("/chat", { state: { startChatWith: student } });
+    navigate("/chat", { 
+      state: { 
+        selectedUser: { 
+          uid: student.id, 
+          name: student.name, 
+          photoURL: student.photoUrl 
+        } 
+      } 
+    });
   };
 
   return (
@@ -59,7 +85,9 @@ const Find = () => {
         {isMobile ? (
              // --- MOBILE VIEW: COMPACT LIST ---
              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {filteredStudents.length > 0 ? (
+                {loading ? (
+                    <div style={{ textAlign: "center", color: "#aaa", padding: "20px" }}>Loading students...</div>
+                ) : filteredStudents.length > 0 ? (
                     filteredStudents.map(student => (
                         <div key={student.id} onClick={() => handleMessage(student)} style={{ 
                             display: "flex", alignItems: "center", gap: "15px", 
@@ -95,7 +123,9 @@ const Find = () => {
         ) : (
             // --- DESKTOP VIEW: CARD GRID ---
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px" }}>
-                {filteredStudents.length > 0 ? (
+                {loading ? (
+                    <div style={{ gridColumn: "1 / -1", textAlign: "center", color: "#aaa" }}>Loading students...</div>
+                ) : filteredStudents.length > 0 ? (
                     filteredStudents.map(student => (
                         <div key={student.id} className="dashboard-card" style={{ padding: "20px", display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
                             {/* Status Dot */}
