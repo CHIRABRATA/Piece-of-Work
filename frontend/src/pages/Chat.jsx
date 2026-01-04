@@ -1,26 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, Hash, Send, MoreVertical, MessageSquare, ArrowLeft } from "lucide-react"; 
 import { useLocation } from "react-router-dom"; 
-
-// Data
-const INITIAL_CONTACTS = [
-  { id: "p1", name: "Aisha Rahman", lastMsg: "Are you going to the hackathon?", time: "10:30 AM", unread: 2, photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=100&q=80", online: true },
-  { id: "p2", name: "Rahul Verma", lastMsg: "Yeah, the code is pushed.", time: "Yesterday", unread: 0, photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80", online: false },
-];
-
-const INITIAL_PUBLIC_CHANNELS = [
-  { id: "c1", name: "General Campus", topic: "Everything campus related" },
-  { id: "c2", name: "Tech Talk", topic: "Code, AI & Hackathons" },
-  { id: "c3", name: "Events & Fests", topic: "Weekend plans?" },
-];
+import { useAuth } from "../context/mainContext";
+import { db } from "../conf/firebase";
+import { collection, query, where, onSnapshot, addDoc, getDoc, doc, serverTimestamp, orderBy, deleteDoc, getDocs } from "firebase/firestore";
 
 const Chat = () => {
   const [activeTab, setActiveTab] = useState("private");
-  const [contacts, setContacts] = useState(INITIAL_CONTACTS); 
-  const [channels, setChannels] = useState(INITIAL_PUBLIC_CHANNELS); 
+  const { user } = useAuth();
+  const [contacts, setContacts] = useState([]); 
+  const [channels, setChannels] = useState([]); 
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState("");
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [messages, setMessages] = useState([]);
+  const expiryTimersRef = useRef({});
 
   const location = useLocation(); 
 
@@ -31,53 +25,160 @@ const Chat = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // --- FIXED NAVIGATION HANDLER ---
+  // Subscribe to chatrooms where current user participates
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, "chatroom"), where("participants", "array-contains", user.uid));
+    const unsub = onSnapshot(q, async (snap) => {
+      const priv = [];
+      const grp = [];
+      const now = Date.now();
+      const timers = expiryTimersRef.current;
+      const rooms = await Promise.all(snap.docs.map(async d => {
+        const data = d.data();
+        let name = data.name || "anonymous";
+        let photoUrl = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+        let online = true;
+        if (data.type === "direct") {
+          const otherId = (data.participants || []).find(p => p !== user.uid);
+          if (otherId) {
+            try {
+              const sDoc = await getDoc(doc(db, "users", otherId));
+              if (sDoc.exists()) {
+                const s = sDoc.data();
+                name = s.Name || name;
+                photoUrl = s.photoURL || photoUrl;
+              }
+            } catch (e) { console.error(e); }
+          }
+        }
+        return { id: d.id, ...data, name, photoUrl, online };
+      }));
+      rooms.forEach(r => {
+        const expMs = r.expiresAt ? (r.expiresAt.toMillis ? r.expiresAt.toMillis() : r.expiresAt) : null;
+        const isExpired = expMs ? expMs <= now : false;
+        if (r.type === "group") {
+          if (!isExpired) {
+            grp.push({ id: r.id, name: r.name, topic: "Temporary group", photoUrl: "", online: true });
+            if (expMs && !timers[r.id]) {
+              const delay = Math.max(expMs - now, 0);
+              timers[r.id] = setTimeout(async () => {
+                try {
+                  await deleteDoc(doc(db, "chatroom", r.id));
+                } catch (e) { console.error(e); }
+                delete timers[r.id];
+              }, delay);
+            }
+          }
+        } else {
+          priv.push({ id: r.id, name: r.name, lastMsg: "Start a conversation", time: "Now", unread: 0, photoUrl: r.photoUrl, online: r.online });
+        }
+      });
+      setContacts(priv);
+      setChannels(grp);
+    });
+    return () => {
+      unsub();
+      const timers = expiryTimersRef.current;
+      Object.values(timers).forEach(t => clearTimeout(t));
+      expiryTimersRef.current = {};
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!selectedChat?.id) return;
+    const q = query(collection(db, "chatroom", selectedChat.id, "messages"), orderBy("createdAt", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      setMessages(list);
+    });
+    return () => unsub();
+  }, [selectedChat]);
+
+  const sendMessage = async () => {
+    const text = messageInput.trim();
+    if (!text || !selectedChat?.id || !user?.uid) return;
+    try {
+      await addDoc(collection(db, "chatroom", selectedChat.id, "messages"), {
+        senderUid: user.uid,
+        text,
+        createdAt: serverTimestamp()
+      });
+      setMessageInput("");
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const interval = setInterval(async () => {
+      try {
+        const q = query(collection(db, "chatroom"), where("participants", "array-contains", user.uid));
+        const snap = await getDocs(q);
+        const now = Date.now();
+        const deletions = snap.docs.filter(d => {
+          const data = d.data();
+          if (data.type !== "group") return false;
+          const exp = data.expiresAt;
+          const expMs = exp?.toMillis ? exp.toMillis() : exp;
+          return expMs && expMs <= now;
+        });
+        await Promise.all(deletions.map(d => deleteDoc(doc(db, "chatroom", d.id))));
+      } catch (e) { console.error(e); }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [user?.uid]);
+
+  // Navigation handler: open chat by id or create/open direct
   useEffect(() => {
     const state = location.state;
     if (!state) return;
 
-    // CASE 1: Start Private Chat (from Find/Requests)
+    // CASE 1: Start Private Chat (create/open direct)
     if (state.selectedUser) {
         const newUser = state.selectedUser;
-        setActiveTab("private");
-
-        // Create the chat object format
-        const chatObject = {
-            id: String(newUser.uid), // Ensure ID matches what you send
-            name: newUser.name,
-            lastMsg: "Start a conversation",
-            time: "Now",
-            unread: 0,
-            photoUrl: newUser.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-            online: true 
-        };
-
-        // Update contacts list if not already there
-        setContacts(prev => {
-            const exists = prev.find(c => String(c.id) === String(newUser.uid));
-            if (exists) return prev; 
-            return [chatObject, ...prev];
-        });
-
-        // FORCE OPEN THE CHAT
-        setSelectedChat(chatObject);
+        (async () => {
+          if (!user?.uid) return;
+          let targetRoom = null;
+          // Find existing direct room
+          const q = query(collection(db, "chatroom"), where("participants", "array-contains", user.uid));
+          const snap = await new Promise(resolve => onSnapshot(q, s => resolve(s)));
+          snap.forEach(d => {
+            const data = d.data();
+            if (data.type === "direct" && Array.isArray(data.participants) && data.participants.includes(newUser.uid)) {
+              targetRoom = { id: d.id, data };
+            }
+          });
+          if (!targetRoom) {
+            const docRef = await addDoc(collection(db, "chatroom"), {
+              type: "direct",
+              participants: [user.uid, newUser.uid],
+              name: newUser.name,
+              createdAt: serverTimestamp()
+            });
+            targetRoom = { id: docRef.id, data: { type: "direct", name: newUser.name } };
+          }
+          setSelectedChat({ id: targetRoom.id, name: newUser.name, photoUrl: newUser.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png", online: true });
+        })();
     }
 
-    // CASE 2: Join Public Channel
-    if (state.joinPublicChannel) {
-        const group = state.joinPublicChannel;
-        setActiveTab("public");
-        setChannels(prev => {
-            const exists = prev.find(c => c.id === group.id);
-            if (exists) return prev;
-            return [...prev, group];
-        });
-        setSelectedChat(group);
+    // CASE 2: Open chatroom by id (group)
+    if (state.openChatId) {
+        (async () => {
+          try {
+            const dSnap = await getDoc(doc(db, "chatroom", state.openChatId));
+            if (dSnap.exists()) {
+              const r = dSnap.data();
+              setSelectedChat({ id: dSnap.id, name: r.name || "Group", topic: "Temporary group", photoUrl: "", online: true });
+              setActiveTab("public");
+            }
+          } catch (e) { console.error(e); }
+        })();
     }
     
     // Clear state so refresh doesn't re-trigger
     window.history.replaceState({}, document.title);
-  }, [location.state]);
+  }, [location.state, user?.uid]);
 
   const chatList = activeTab === "private" ? contacts : channels;
   const showList = !isMobile || (isMobile && !selectedChat);
@@ -188,12 +289,21 @@ const Chat = () => {
                     </div>
                 </div>
 
-                <div style={{ flex: 1, padding: "20px", display: "flex", flexDirection: "column", justifyContent: "flex-end", color: "#666", overflowY: "auto", minHeight: 0 }}>
-                      <div style={{ textAlign: "center", marginTop: "auto", marginBottom: "auto" }}>
-                            <p style={{ color: "#aaa" }}>
-                                {activeTab === 'private' ? `Start conversation with ${selectedChat.name}` : `Welcome to #${selectedChat.name}`}
-                            </p>
-                      </div>
+                <div style={{ flex: 1, padding: "20px", display: "flex", flexDirection: "column", color: "white", overflowY: "auto", minHeight: 0, gap: "10px" }}>
+                      {messages.length === 0 ? (
+                        <div style={{ textAlign: "center", marginTop: "auto", marginBottom: "auto", color: "#aaa" }}>
+                          {activeTab === 'private' ? `Start conversation with ${selectedChat.name}` : `Welcome to #${selectedChat.name}`}
+                        </div>
+                      ) : (
+                        messages.map(m => {
+                          const mine = m.senderUid === user?.uid;
+                          return (
+                            <div key={m.id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "70%", background: mine ? "#05d9e8" : "rgba(255,255,255,0.08)", color: mine ? "black" : "white", padding: "10px 14px", borderRadius: mine ? "16px 16px 4px 16px" : "16px 16px 16px 4px" }}>
+                              {m.text}
+                            </div>
+                          );
+                        })
+                      )}
                 </div>
 
                 <div style={{ padding: "20px", background: "rgba(0,0,0,0.2)" }}>
@@ -203,8 +313,8 @@ const Chat = () => {
                             value={messageInput} onChange={(e) => setMessageInput(e.target.value)}
                             style={{ flex: 1, background: "transparent", border: "none", color: "white", outline: "none", fontSize: "15px" }} 
                         />
-                        <button style={{ width: "45px", height: "45px", borderRadius: "50%", background: "#05d9e8", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                            <Send size={20} color="black" />
+                        <button onClick={sendMessage} style={{ width: "45px", height: "45px", borderRadius: "50%", background: "#05d9e8", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                          <Send size={20} color="black" />
                         </button>
                     </div>
                 </div>

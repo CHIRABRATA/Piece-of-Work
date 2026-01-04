@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../conf/firebase";
-import { loginStudent, logoutStudent } from "../services/Authservice.js";
+// Import the signupStudent service
+import { loginStudent, logoutStudent, signupStudent } from "../services/Authservice.js";
 
 const AuthContext = createContext();
 
@@ -11,7 +12,6 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  // NEW: State to handle interactive messages like "Session Revoked! 😏"
   const [statusMsg, setStatusMsg] = useState(null); 
 
   useEffect(() => {
@@ -28,11 +28,13 @@ export const AuthProvider = ({ children }) => {
             if (docSnap.exists()) {
               const data = docSnap.data();
               
-              // THE KILL SWITCH: If Admin revokes access
+              // THE KILL SWITCH
+              // Only trigger if the user is authenticated but the DB says registered is false
               if (data.is_registered === false) {
-                 setStatusMsg("Session Revoked by Admin! 😏"); // Interactive emoji msg
+                 setStatusMsg("Session Revoked by Admin! 😏");
                  setTimeout(() => {
-                    logout(); // Wait 2 seconds so they see the msg, then kick
+                   logout(); 
+                   setStatusMsg(null); // Clear msg after logout
                  }, 2000);
               }
             }
@@ -51,32 +53,40 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // 1. IMPROVED LOGIN: Now ensures local storage is set for the listener
-  const login = async (email, password, regNo) => {
-    // Logic remains: check DB -> check registered -> Login
-    const userCredential = await loginStudent(email, password, regNo);
-    localStorage.setItem("userRegNo", regNo); // Crucial for the Snapshot listener
+  // SIGNUP LOGIC
+  const signup = async (email, password, regNo) => {
+    const userCredential = await signupStudent(email, password, regNo);
+    localStorage.setItem("userRegNo", regNo);
     return userCredential;
   };
 
-  // 2. IMPROVED LOGOUT: Cleans up local data
+  // LOGIN LOGIC
+  const login = async (email, password, regNo) => {
+    const userCredential = await loginStudent(email, password, regNo);
+    localStorage.setItem("userRegNo", regNo); 
+    return userCredential;
+  };
+
+  // LOGOUT LOGIC
   const logout = async () => {
-    localStorage.removeItem("userRegNo");
+    // We get the regNo before clearing it to update Firestore
     await logoutStudent();
+    localStorage.removeItem("userRegNo");
+    setUser(null);
   };
 
   const value = {
     user,
     loading,
-    statusMsg, // Expose this so your UI can show the emoji alert
+    statusMsg,
     setStatusMsg,
     login,
+    signup, // Now defined!
     logout
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {/* 3. INTERACTIVE OVERLAY: Shows if statusMsg is present */}
       {statusMsg && (
         <div className="fixed top-5 right-5 z-[100] bg-red-500/20 border border-red-500 backdrop-blur-lg text-red-200 px-6 py-4 rounded-2xl shadow-2xl animate-bounce">
           {statusMsg}
