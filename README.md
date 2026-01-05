@@ -2,4 +2,4 @@
 cd campus-connect
 Install dependenciesBashnpm install
 Configure FirebaseCreate a src/conf/firebase.js and add your configuration.Launch the CampusBashnpm run dev
-🎨 UI ShowcaseLogin ScreenDiscovery CardsProfile ManagementUltra-dark theme with interactive Light Pillars.Dynamic cards with swipe gestures.Read-only RegNo with editable Bio/Photo.🤝 ContributingContributions are what make the campus community amazing.Fork the Project.Create your Feature Branch (git checkout -b feature/AmazingFeature).Commit your Changes (git commit -m 'Add some AmazingFeature').Push to the Branch (git push origin feature/AmazingFeature).Open a Pull Request
+🎨 UI ShowcaseLogin ScreenDiscovery CardsProfile ManagementUltra-dark theme with interactive Light Pillars.Dynamic cards with swipe gestures.Read-only RegNo with editable Bio/Photo.🤝 ContributingContributions are what make the campus community amazing.Fork the Project.Create your Feature Branch (git checkout -b feature/AmazingFeature).Commit your Changes (git commit -m 'Add some AmazingFeature').Push to the Branch (git push origin feature/AmazingFeature).Open a Pull Request..
