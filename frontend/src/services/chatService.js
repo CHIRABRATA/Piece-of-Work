@@ -52,6 +52,34 @@ export const createChat = async (uid1, uid2) => {
 };
 
 /**
+ * Creates a NEW group chat.
+ */
+export const createGroupChat = async (groupName, userIds, creatorId) => {
+    // Create a reference with an auto-generated ID (random)
+    const chatRef = doc(collection(db, "chats"));
+    const chatId = chatRef.id;
+
+    try {
+        await setDoc(chatRef, {
+            type: "group",
+            groupName,
+            users: userIds,
+            createdBy: creatorId,
+            admins: [creatorId],
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            lastMessage: `Group "${groupName}" created`
+        });
+
+        console.log("Group Chat created:", chatId);
+        return chatId;
+    } catch (err) {
+        console.error("Error in createGroupChat service:", err);
+        throw err;
+    }
+};
+
+/**
  * Sends a message in a chat thread.
  */
 export const sendMessage = async (chatId, senderId, text) => {

@@ -9,6 +9,7 @@ import {
   getMessagesListener,
   sendMessage,
   createChat,
+  createGroupChat,
   getChatId
 } from "../services/chatService";
 
@@ -27,6 +28,10 @@ const Chat = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [errorStatus, setErrorStatus] = useState("");
+  // Group Chat State
+  const [groupName, setGroupName] = useState("");
+  const [selectedGroupUsers, setSelectedGroupUsers] = useState([]);
+  const [memberMap, setMemberMap] = useState({});
 
   const messagesEndRef = useRef(null);
 
@@ -44,24 +49,41 @@ const Chat = () => {
     const unsubscribe = getChatsListener(user.uid, async (chatList) => {
       try {
         const enhancedChats = await Promise.all(chatList.map(async (chat) => {
-          const otherId = chat.users.find(uid => uid !== user.uid);
-          let name = "Unknown User";
-          let photoUrl = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+          try {
+            let name = "Unknown User";
+            let photoUrl = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-          if (otherId) {
-            const userDoc = await getDoc(doc(db, "users", otherId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              name = userData.name || userData.Name || "Unknown User";
-              photoUrl = userData.photoUrl || userData.photoURL || photoUrl;
+            if (chat.type === "group") {
+              name = chat.groupName || "Unnamed Group";
+              // Default group icon
+              photoUrl = "https://cdn-icons-png.flaticon.com/512/166/166258.png";
+            } else {
+              if (!chat.users || !Array.isArray(chat.users)) return null;
+
+              const otherId = chat.users.find(uid => uid !== user.uid);
+
+              if (otherId && typeof otherId === 'string' && otherId.trim()) {
+                const userDoc = await getDoc(doc(db, "users", otherId));
+                if (userDoc.exists()) {
+                  const userData = userDoc.data();
+                  name = userData.name || userData.Name || "Unknown User";
+                  photoUrl = userData.photoUrl || userData.photoURL || photoUrl;
+                }
+              }
             }
+            return { ...chat, name, photoUrl };
+          } catch (innerErr) {
+            console.error("Error processing chat item:", chat.id, innerErr);
+            return null;
           }
-          return { ...chat, name, photoUrl };
         }));
 
+        // Filter valid chats
+        const validChats = enhancedChats.filter(c => c !== null);
+
         // Manual sort locally to avoid index requirement
-        enhancedChats.sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
-        setChats(enhancedChats);
+        validChats.sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
+        setChats(validChats);
       } catch (err) {
         console.error("Error updating chats:", err);
         setErrorStatus("Failed to load chat list.");
@@ -129,6 +151,33 @@ const Chat = () => {
     return () => unsubscribe();
   }, [selectedChat]);
 
+  // 3.5 Fetch Group Members for names
+  useEffect(() => {
+    if (selectedChat?.type === "group" && selectedChat.users) {
+      const fetchMembers = async () => {
+        const map = {};
+        await Promise.all(selectedChat.users.map(async (uid) => {
+          if (uid === user.uid) return;
+          // Check friends explicitly first
+          const friend = friends.find(f => f.uid === uid);
+          if (friend) {
+            map[uid] = friend;
+          } else {
+            const snap = await getDoc(doc(db, "users", uid));
+            if (snap.exists()) {
+              const d = snap.data();
+              map[uid] = { name: d.name || d.Name || "User", photoUrl: d.photoURL || d.photoUrl };
+            }
+          }
+        }));
+        setMemberMap(map);
+      };
+      fetchMembers();
+    } else {
+      setMemberMap({});
+    }
+  }, [selectedChat, friends, user]);
+
   // 4. Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -176,6 +225,45 @@ const Chat = () => {
     }
   };
 
+  // Create Group Chat
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      setErrorStatus("Please enter a group name");
+      return;
+    }
+    if (selectedGroupUsers.length < 2) {
+      setErrorStatus("Select at least 2 friends");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      // Include self
+      const allUserIds = [user.uid, ...selectedGroupUsers];
+
+      const chatId = await createGroupChat(groupName, allUserIds, user.uid);
+
+      // Reset
+      setGroupName("");
+      setSelectedGroupUsers([]);
+      setActiveView("chats");
+      // Optional: Auto-select new group (might need delay for listener to pick it up, or just wait for user)
+    } catch (err) {
+      console.error("Failed to create group", err);
+      setErrorStatus("Failed to create group.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const toggleGroupUser = (uid) => {
+    if (selectedGroupUsers.includes(uid)) {
+      setSelectedGroupUsers(prev => prev.filter(id => id !== uid));
+    } else {
+      setSelectedGroupUsers(prev => [...prev, uid]);
+    }
+  };
+
   // Navigation from Requests
   useEffect(() => {
     const state = location.state;
@@ -210,27 +298,40 @@ const Chat = () => {
           <div style={{ padding: "20px 20px 10px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "15px" }}>
               <h2 style={{ fontSize: "18px", fontWeight: "900", color: "white", margin: 0, letterSpacing: "1px" }}>
-                {activeView === "chats" ? "CHATS" : "FRIENDS"}
+                {activeView === "chats" ? "CHATS" : activeView === "create_group" ? "NEW GROUP" : "FRIENDS"}
               </h2>
-              <button
-                disabled={actionLoading}
-                onClick={() => setActiveView(activeView === "chats" ? "friends" : "chats")}
-                style={{ background: "rgba(5, 217, 232, 0.1)", border: "1px solid #05d9e8", color: "#05d9e8", padding: "5px 12px", borderRadius: "20px", fontSize: "12px", cursor: actionLoading ? "not-allowed" : "pointer", fontWeight: "700" }}
-              >
-                {activeView === "chats" ? "+ New Chat" : "View Chats"}
-              </button>
+              <div style={{ display: 'flex', gap: '5px' }}>
+                {activeView !== "create_group" && (
+                  <button
+                    title="Create Group"
+                    onClick={() => setActiveView("create_group")}
+                    style={{ background: "transparent", border: "1px solid rgba(5, 217, 232, 0.5)", color: "#05d9e8", padding: "5px 8px", borderRadius: "10px", cursor: "pointer" }}
+                  >
+                    <Users size={14} />
+                  </button>
+                )}
+                <button
+                  disabled={actionLoading}
+                  onClick={() => setActiveView(activeView === "chats" ? "friends" : "chats")}
+                  style={{ background: "rgba(5, 217, 232, 0.1)", border: "1px solid #05d9e8", color: "#05d9e8", padding: "5px 12px", borderRadius: "20px", fontSize: "12px", cursor: actionLoading ? "not-allowed" : "pointer", fontWeight: "700" }}
+                >
+                  {activeView === "chats" ? "+ New Chat" : "View Chats"}
+                </button>
+              </div>
             </div>
 
-            <div style={{ position: "relative" }}>
-              <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#6c757d" }} />
-              <input
-                type="text"
-                placeholder={activeView === "chats" ? "Search chats..." : "Search friends..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", padding: "10px 10px 10px 35px", color: "white", outline: "none", fontSize: "14px" }}
-              />
-            </div>
+            {activeView !== "create_group" && (
+              <div style={{ position: "relative" }}>
+                <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#6c757d" }} />
+                <input
+                  type="text"
+                  placeholder={activeView === "chats" ? "Search chats..." : "Search friends..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", padding: "10px 10px 10px 35px", color: "white", outline: "none", fontSize: "14px" }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Error Notification */}
@@ -242,7 +343,40 @@ const Chat = () => {
 
           {/* List Content */}
           <div style={{ flex: 1, overflowY: "auto", padding: "10px" }}>
-            {initialLoading && chats.length === 0 ? (
+            {activeView === "create_group" ? (
+              <div style={{ padding: "10px" }}>
+                <input
+                  type="text"
+                  placeholder="Group Name"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  style={{ width: "100%", padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.1)", border: "none", color: "white", marginBottom: "20px", fontSize: "16px" }}
+                />
+                <div style={{ marginBottom: "10px", fontSize: "14px", color: "#aaa" }}>Select Members ({selectedGroupUsers.length}):</div>
+                {friends.map(f => (
+                  <div
+                    key={f.uid}
+                    onClick={() => toggleGroupUser(f.uid)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "10px", padding: "10px", marginBottom: "5px", borderRadius: "8px", cursor: "pointer",
+                      background: selectedGroupUsers.includes(f.uid) ? "rgba(5, 217, 232, 0.2)" : "transparent",
+                      border: selectedGroupUsers.includes(f.uid) ? "1px solid #05d9e8" : "1px solid transparent"
+                    }}
+                  >
+                    <img src={f.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} style={{ width: 30, height: 30, borderRadius: "50%" }} />
+                    <span style={{ color: "white", flex: 1 }}>{f.name}</span>
+                    {selectedGroupUsers.includes(f.uid) && <span style={{ color: "#05d9e8" }}>✓</span>}
+                  </div>
+                ))}
+                <button
+                  onClick={handleCreateGroup}
+                  disabled={!groupName.trim() || selectedGroupUsers.length < 2 || actionLoading}
+                  style={{ width: "100%", padding: "12px", marginTop: "20px", borderRadius: "10px", background: "#05d9e8", border: "none", color: "black", fontWeight: "bold", cursor: "pointer", opacity: (!groupName.trim() || selectedGroupUsers.length < 2) ? 0.5 : 1 }}
+                >
+                  Create Group
+                </button>
+              </div>
+            ) : initialLoading && chats.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-blue-400">
                 <Loader2 className="animate-spin mb-2" size={32} />
                 <span className="text-sm">Loading contacts...</span>
@@ -342,6 +476,7 @@ const Chat = () => {
                 ) : (
                   messages.map((m, idx) => {
                     const isMine = m.senderId === user?.uid;
+                    const senderProfile = !isMine && selectedChat.type === "group" ? memberMap[m.senderId] : null;
                     return (
                       <div
                         key={m.id || idx}
@@ -356,6 +491,11 @@ const Chat = () => {
                           position: "relative"
                         }}
                       >
+                        {senderProfile && (
+                          <div style={{ fontSize: "11px", fontWeight: "700", color: "#05d9e8", marginBottom: "4px" }}>
+                            {senderProfile.name}
+                          </div>
+                        )}
                         <div style={{ fontSize: "15px", lineHeight: "1.4", fontWeight: isMine ? "600" : "400" }}>{m.text}</div>
                         <div style={{ fontSize: "10px", marginTop: "4px", textAlign: isMine ? "right" : "left", opacity: 0.5 }}>
                           {m.createdAt?.toMillis ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
