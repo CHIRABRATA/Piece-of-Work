@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Search, Send, MessageSquare, ArrowLeft, Loader2, UserPlus, Users, AlertCircle } from "lucide-react";
+import { Search, Send, MessageSquare, ArrowLeft, Loader2, UserPlus, Users, AlertCircle, Clock } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/mainContext";
 import { db } from "../conf/firebase";
@@ -31,6 +31,7 @@ const Chat = () => {
   // Group Chat State
   const [groupName, setGroupName] = useState("");
   const [selectedGroupUsers, setSelectedGroupUsers] = useState([]);
+  const [isEphemeral, setIsEphemeral] = useState(false);
   const [memberMap, setMemberMap] = useState({});
 
   const messagesEndRef = useRef(null);
@@ -53,7 +54,7 @@ const Chat = () => {
             let name = "Unknown User";
             let photoUrl = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-            if (chat.type === "group") {
+            if (chat.type === "group" || chat.type === "ephemeral_group") {
               name = chat.groupName || "Unnamed Group";
               // Default group icon
               photoUrl = "https://cdn-icons-png.flaticon.com/512/166/166258.png";
@@ -186,6 +187,16 @@ const Chat = () => {
   // Handle Send
   const handleSend = async () => {
     if (!messageInput.trim() || !selectedChat?.id || !user?.uid) return;
+
+    // Redundant guard for expiry
+    if (selectedChat.type === "ephemeral_group" && selectedChat.expiresAt) {
+      const expiresVal = selectedChat.expiresAt.toDate ? selectedChat.expiresAt.toDate() : new Date(selectedChat.expiresAt.seconds * 1000);
+      if (new Date() > expiresVal) {
+        setErrorStatus("This chat has expired.");
+        return;
+      }
+    }
+
     try {
       await sendMessage(selectedChat.id, user.uid, messageInput);
       setMessageInput("");
@@ -241,11 +252,12 @@ const Chat = () => {
       // Include self
       const allUserIds = [user.uid, ...selectedGroupUsers];
 
-      const chatId = await createGroupChat(groupName, allUserIds, user.uid);
+      const chatId = await createGroupChat(groupName, allUserIds, user.uid, isEphemeral);
 
       // Reset
       setGroupName("");
       setSelectedGroupUsers([]);
+      setIsEphemeral(false);
       setActiveView("chats");
       // Optional: Auto-select new group (might need delay for listener to pick it up, or just wait for user)
     } catch (err) {
@@ -367,13 +379,29 @@ const Chat = () => {
                     <span style={{ color: "white", flex: 1 }}>{f.name}</span>
                     {selectedGroupUsers.includes(f.uid) && <span style={{ color: "#05d9e8" }}>✓</span>}
                   </div>
+
                 ))}
+
+                <div style={{ marginTop: "15px", marginBottom: "5px", display: "flex", alignItems: "center", gap: "10px", background: "rgba(255,255,255,0.05)", padding: "10px", borderRadius: "10px" }}>
+                  <input
+                    type="checkbox"
+                    id="ephemeralCheck"
+                    checked={isEphemeral}
+                    onChange={(e) => setIsEphemeral(e.target.checked)}
+                    style={{ width: "18px", height: "18px", accentColor: "#05d9e8", cursor: "pointer" }}
+                  />
+                  <label htmlFor="ephemeralCheck" style={{ color: "white", fontSize: "14px", cursor: "pointer", flex: 1 }}>
+                    <span style={{ fontWeight: "bold", color: "#05d9e8" }}>Ephemeral Mode</span>
+                    <div style={{ fontSize: "12px", color: "#aaa", marginTop: "2px" }}>Disappears after 1 hour</div>
+                  </label>
+                </div>
+
                 <button
                   onClick={handleCreateGroup}
                   disabled={!groupName.trim() || selectedGroupUsers.length < 2 || actionLoading}
                   style={{ width: "100%", padding: "12px", marginTop: "20px", borderRadius: "10px", background: "#05d9e8", border: "none", color: "black", fontWeight: "bold", cursor: "pointer", opacity: (!groupName.trim() || selectedGroupUsers.length < 2) ? 0.5 : 1 }}
                 >
-                  Create Group
+                  Create {isEphemeral ? "Ephemeral " : ""}Group
                 </button>
               </div>
             ) : initialLoading && chats.length === 0 ? (
@@ -439,116 +467,140 @@ const Chat = () => {
             </div>
           )}
         </div>
-      )}
+      )
+      }
 
       {/* RIGHT: Window */}
-      {showChatWindow && (
-        <div className="dashboard-card" style={{ display: "flex", flexDirection: "column", overflow: "hidden", background: "rgba(13, 14, 27, 0.7)" }}>
-          {selectedChat ? (
-            <>
-              {/* Header */}
-              <div style={{ padding: "15px 25px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.2)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                  {isMobile && (
-                    <button onClick={() => setSelectedChat(null)} style={{ background: "transparent", border: "none", color: "white", padding: 0, cursor: "pointer" }}>
-                      <ArrowLeft size={24} />
-                    </button>
-                  )}
-                  <img src={selectedChat.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} style={{ width: "45px", height: "45px", borderRadius: "12px", objectFit: "cover" }} />
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: "18px", color: "white", fontWeight: "800" }}>{selectedChat.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                      <span style={{ fontSize: "12px", color: "#00ff88", fontWeight: "600" }}>Real-time Enabled</span>
+      {
+        showChatWindow && (
+          <div className="dashboard-card" style={{ display: "flex", flexDirection: "column", overflow: "hidden", background: "rgba(13, 14, 27, 0.7)" }}>
+            {selectedChat ? (
+              <>
+                {/* Header */}
+                <div style={{ padding: "15px 25px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                    {isMobile && (
+                      <button onClick={() => setSelectedChat(null)} style={{ background: "transparent", border: "none", color: "white", padding: 0, cursor: "pointer" }}>
+                        <ArrowLeft size={24} />
+                      </button>
+                    )}
+                    <img src={selectedChat.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} style={{ width: "45px", height: "45px", borderRadius: "12px", objectFit: "cover" }} />
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: "18px", color: "white", fontWeight: "800" }}>{selectedChat.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: "12px", color: "#00ff88", fontWeight: "600" }}>Real-time Enabled</span>
+                      </div>
+                      {selectedChat.type === "ephemeral_group" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", color: "#ff2a6d", fontSize: "11px", fontWeight: "700" }}>
+                          <Clock size={12} />
+                          <span>Expires: {selectedChat.expiresAt?.toDate ? selectedChat.expiresAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Soon"}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Messages Body */}
-              <div style={{ flex: 1, padding: "20px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", scrollbarWidth: "thin" }}>
-                {messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full opacity-30">
-                    <MessageSquare size={80} className="mb-4" />
-                    <p className="text-xl font-bold">Say Hello to {selectedChat.name}!</p>
-                    <p className="text-sm">Start your conversation below</p>
-                  </div>
-                ) : (
-                  messages.map((m, idx) => {
-                    const isMine = m.senderId === user?.uid;
-                    const senderProfile = !isMine && selectedChat.type === "group" ? memberMap[m.senderId] : null;
-                    return (
-                      <div
-                        key={m.id || idx}
-                        style={{
-                          alignSelf: isMine ? "flex-end" : "flex-start",
-                          maxWidth: "70%",
-                          background: isMine ? "linear-gradient(135deg, #05d9e8 0%, #00b4d8 100%)" : "rgba(255,255,255,0.08)",
-                          color: isMine ? "black" : "white",
-                          padding: "12px 18px",
-                          borderRadius: isMine ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
-                          boxShadow: isMine ? "0 4px 15px rgba(5, 217, 232, 0.2)" : "none",
-                          position: "relative"
-                        }}
-                      >
-                        {senderProfile && (
-                          <div style={{ fontSize: "11px", fontWeight: "700", color: "#05d9e8", marginBottom: "4px" }}>
-                            {senderProfile.name}
+                {/* Messages Body */}
+                <div style={{ flex: 1, padding: "20px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", scrollbarWidth: "thin" }}>
+                  {messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full opacity-30">
+                      <MessageSquare size={80} className="mb-4" />
+                      <p className="text-xl font-bold">Say Hello to {selectedChat.name}!</p>
+                      <p className="text-sm">Start your conversation below</p>
+                    </div>
+                  ) : (
+                    messages.map((m, idx) => {
+                      const isMine = m.senderId === user?.uid;
+                      const senderProfile = !isMine && selectedChat.type === "group" ? memberMap[m.senderId] : null;
+                      return (
+                        <div
+                          key={m.id || idx}
+                          style={{
+                            alignSelf: isMine ? "flex-end" : "flex-start",
+                            maxWidth: "70%",
+                            background: isMine ? "linear-gradient(135deg, #05d9e8 0%, #00b4d8 100%)" : "rgba(255,255,255,0.08)",
+                            color: isMine ? "black" : "white",
+                            padding: "12px 18px",
+                            borderRadius: isMine ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+                            boxShadow: isMine ? "0 4px 15px rgba(5, 217, 232, 0.2)" : "none",
+                            position: "relative"
+                          }}
+                        >
+                          {senderProfile && (
+                            <div style={{ fontSize: "11px", fontWeight: "700", color: "#05d9e8", marginBottom: "4px" }}>
+                              {senderProfile.name}
+                            </div>
+                          )}
+                          <div style={{ fontSize: "15px", lineHeight: "1.4", fontWeight: isMine ? "600" : "400" }}>{m.text}</div>
+                          <div style={{ fontSize: "10px", marginTop: "4px", textAlign: isMine ? "right" : "left", opacity: 0.5 }}>
+                            {m.createdAt?.toMillis ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                           </div>
-                        )}
-                        <div style={{ fontSize: "15px", lineHeight: "1.4", fontWeight: isMine ? "600" : "400" }}>{m.text}</div>
-                        <div style={{ fontSize: "10px", marginTop: "4px", textAlign: isMine ? "right" : "left", opacity: 0.5 }}>
-                          {m.createdAt?.toMillis ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                         </div>
+                      );
+                    })
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Input Area (Only if not expired) */}
+                {!(selectedChat.type === "ephemeral_group" && selectedChat.expiresAt && (selectedChat.expiresAt.toDate ? selectedChat.expiresAt.toDate() : new Date(selectedChat.expiresAt.seconds * 1000)) < new Date()) && (
+                  <div style={{ padding: "20px 30px", background: "rgba(0,0,0,0.3)" }}>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center", background: "#0b0c15", padding: "8px 8px 8px 20px", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.5)" }}>
+                      <input
+                        type="text"
+                        placeholder="Message..."
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyPress={(e) => e.key === "Enter" && handleSend()}
+                        style={{ flex: 1, background: "transparent", border: "none", color: "white", outline: "none", fontSize: "16px" }}
+                      />
+                      <button
+                        onClick={handleSend}
+                        disabled={!messageInput.trim()}
+                        style={{ width: "45px", height: "45px", borderRadius: "15px", background: messageInput.trim() ? "#05d9e8" : "#333", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}
+                      >
+                        <Send size={20} color={messageInput.trim() ? "black" : "#666"} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expired Overlay/Blocker */}
+                {selectedChat.type === "ephemeral_group" && selectedChat.expiresAt && (() => {
+                  const expiresVal = selectedChat.expiresAt.toDate ? selectedChat.expiresAt.toDate() : new Date(selectedChat.expiresAt.seconds * 1000);
+                  if (new Date() > expiresVal) {
+                    return (
+                      <div style={{ padding: "20px", background: "rgba(255, 42, 109, 0.1)", borderTop: "1px solid rgba(255, 42, 109, 0.3)", color: "#ff2a6d", textAlign: "center", fontWeight: "bold" }}>
+                        <AlertCircle size={20} style={{ marginBottom: "5px", display: "inline-block", verticalAlign: "middle", marginRight: "8px" }} />
+                        Cannot send message. This chat has expired.
                       </div>
                     );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input Area */}
-              <div style={{ padding: "20px 30px", background: "rgba(0,0,0,0.3)" }}>
-                <div style={{ display: "flex", gap: "10px", alignItems: "center", background: "#0b0c15", padding: "8px 8px 8px 20px", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.5)" }}>
-                  <input
-                    type="text"
-                    placeholder="Message..."
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSend()}
-                    style={{ flex: 1, background: "transparent", border: "none", color: "white", outline: "none", fontSize: "16px" }}
-                  />
-                  <button
-                    onClick={handleSend}
-                    disabled={!messageInput.trim()}
-                    style={{ width: "45px", height: "45px", borderRadius: "15px", background: messageInput.trim() ? "#05d9e8" : "#333", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}
-                  >
-                    <Send size={20} color={messageInput.trim() ? "black" : "#666"} />
-                  </button>
+                  }
+                  return null;
+                })()}
+              </>
+            ) : (
+              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#6c757d", padding: "40px", textAlign: "center" }}>
+                <div style={{ position: "relative", marginBottom: "30px" }}>
+                  <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full"></div>
+                  <MessageSquare size={100} style={{ opacity: 0.1, position: "relative" }} />
                 </div>
+                <h2 style={{ margin: "0 0 10px 0", color: "white", fontSize: "24px", fontWeight: "900" }}>Your Inbox</h2>
+                <p style={{ opacity: 0.5, maxWidth: "300px", lineHeight: "1.6" }}>
+                  Select a conversation from the left or start a new message with one of your connections.
+                </p>
+                <button
+                  onClick={() => setActiveView("friends")}
+                  className="mt-6 px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all transform hover:scale-105"
+                >
+                  Start Messaging
+                </button>
               </div>
-            </>
-          ) : (
-            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#6c757d", padding: "40px", textAlign: "center" }}>
-              <div style={{ position: "relative", marginBottom: "30px" }}>
-                <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full"></div>
-                <MessageSquare size={100} style={{ opacity: 0.1, position: "relative" }} />
-              </div>
-              <h2 style={{ margin: "0 0 10px 0", color: "white", fontSize: "24px", fontWeight: "900" }}>Your Inbox</h2>
-              <p style={{ opacity: 0.5, maxWidth: "300px", lineHeight: "1.6" }}>
-                Select a conversation from the left or start a new message with one of your connections.
-              </p>
-              <button
-                onClick={() => setActiveView("friends")}
-                className="mt-6 px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all transform hover:scale-105"
-              >
-                Start Messaging
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+            )
+            }
+          </div >
+        )}
+    </div >
   );
 };
 
