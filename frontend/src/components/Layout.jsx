@@ -154,7 +154,7 @@ const NavItem = ({ to, icon, label, isOpen }) => {
   return (
     <Link to={to} style={{
       display: "flex", alignItems: "center", gap: "15px",
-      padding: "12px 15px", borderRadius: "12px",
+      padding: "9px 10px", borderRadius: "12px",
       color: isActive ? "#fff" : "#6c757d",
       background: isActive ? "linear-gradient(90deg, rgba(5, 217, 232, 0.1) 0%, transparent 100%)" : "transparent",
       borderLeft: isActive ? "3px solid #05d9e8" : "3px solid transparent",

@@ -66,9 +66,10 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
               
               style={{
                 position: "absolute",
-                width: "400px", // FIX 4: Wider card for Desktop
+                width: "370px", // FIX 4: Wider card for Desktop
                 maxWidth: "90vw",
-                height: "600px",
+                height: "550px",
+                margin : "20px",
                 cursor: isTop ? "grab" : "default",
               }}
             >
