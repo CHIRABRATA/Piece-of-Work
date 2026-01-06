@@ -1,31 +1,37 @@
 import React, { useState, useEffect } from "react";
 import CardStack from "../components/Cards/CardStack";
 import LightRays from "../components/effects/LightRays";
-import { Search, Check, X } from "lucide-react"; 
+import { Check, X, Settings2 } from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/mainContext";
 import { collection, getDocs, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../conf/firebase";
 
-const PUBLIC_GROUPS = [
-    { id: "c1", name: "General Campus", members: 358 },
-    { id: "c2", name: "Tech Talk", members: 120 },
-    { id: "c3", name: "Events & Fests", members: 85 },
-    { id: "c4", name: "Gaming Club", members: 64 },
-];
-
 const Discovery = () => {
     const navigate = useNavigate();
     const { user: authUser } = useAuth();
     const [users, setUsers] = useState([]);
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 1000);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [loading, setLoading] = useState(true);
-    
-    // Notification State
     const [notification, setNotification] = useState(null); 
 
+    // Filter states
+    const [matchBatch, setMatchBatch] = useState(false);
+    const [matchBranch, setMatchBranch] = useState(false);
+    const [matchBio, setMatchBio] = useState(false);
+    
+    const [selectedBatch, setSelectedBatch] = useState(null);
+    const [selectedBranch, setSelectedBranch] = useState(null);
+    const [availableBatches, setAvailableBatches] = useState([]);
+    const [availableBranches, setAvailableBranches] = useState([]);
+    const [showSidebar, setShowSidebar] = useState(false); 
+
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 1000);
+        const handleResize = () => {
+            const mobile = window.innerWidth < 1024;
+            setIsMobile(mobile);
+            if (!mobile) setShowSidebar(false);
+        };
         window.addEventListener("resize", handleResize);
 
         const fetchUsers = async () => {
@@ -35,14 +41,18 @@ const Discovery = () => {
                     .map(d => ({
                         uid: d.id,
                         name: d.data().Name || d.data().name || "Unknown Student",
-                        major: d.data().DEPT?.toUpperCase() || d.data().branch || "STUDENT",
+                        branch: d.data().branch || d.data().DEPT || "",
+                        batch: d.data().batch || "",
                         bio: d.data().BIO || d.data().bio || "",
                         photoUrl: d.data().photoURL || d.data().photoUrl || "",
                     }))
                     .filter(u => u.uid !== authUser?.uid);
+                
                 setUsers(list);
+                setAvailableBatches([...new Set(list.map(u => u.batch).filter(Boolean))].sort());
+                setAvailableBranches([...new Set(list.map(u => u.branch).filter(Boolean))].sort());
             } catch (err) {
-                console.error("Fetch users error:", err);
+                console.error(err);
             } finally {
                 setLoading(false);
             }
@@ -52,149 +62,165 @@ const Discovery = () => {
         return () => window.removeEventListener("resize", handleResize);
     }, [authUser]);
 
+    const showNotification = (msg, type) => {
+        setNotification({ msg, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
+
     const sendFriendRequest = async (targetUser) => {
         if (!authUser || !targetUser?.uid) return;
-        
         const requestId = `${authUser.uid}_${targetUser.uid}`;
-        const reverseId = `${targetUser.uid}_${authUser.uid}`;
-
         try {
-            const reverseSnap = await getDoc(doc(db, "friend_requests", reverseId));
-            if (reverseSnap.exists()) {
-                showNotification("Request pending!", "error");
-                return;
-            }
-
             await setDoc(doc(db, "friend_requests", requestId), {
                 from: authUser.uid,
                 to: targetUser.uid,
                 status: "pending",
                 createdAt: serverTimestamp(),
             });
-
-            // FIXED: Use the fallback name we created in fetchUsers
             showNotification(`Request sent to ${targetUser.name}!`, "success");
-
-        } catch (err) {
-            console.error("Error sending request:", err);
-        }
+        } catch (err) { console.error(err); }
     };
 
-    const showNotification = (msg, type) => {
-        setNotification({ msg, type });
-        setTimeout(() => setNotification(null), 3000);
-    };
+    const filteredUsers = users.filter(u => {
+        const batchMatch = !selectedBatch || u.batch === selectedBatch;
+        const branchMatch = !selectedBranch || u.branch === selectedBranch;
+        return batchMatch && branchMatch;
+    });
+
+    const matchingUsers = users.filter(u => 
+        (matchBatch && u.batch === authUser?.batch) ||
+        (matchBranch && u.branch === authUser?.branch) ||
+        (matchBio && u.bio)
+    ).slice(0, 5);
 
     return (
         <div style={{
-            display: isMobile ? "flex" : "grid",
-            flexDirection: "column",
-            gridTemplateColumns: "1fr 350px",
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
             gap: "20px",
-            height: "100%",
-            padding: "5px",
-            position: "relative"
+            height: "calc(100vh - 100px)",
+            padding: "10px",
+            position: "relative",
+            overflow: "hidden"
         }}>
             
-            {/* --- EXACT REPLICA OF YOUR NOTIFICATION POPUP --- */}
+            {/* NOTIFICATION */}
             {notification && (
                 <div style={{
-                    position: "fixed",
-                    bottom: "30px",
-                    right: "20%",
-                    background: "rgba(10, 10, 20, 0.95)",
-                    backdropFilter: "blur(12px)",
-                    border: "1px solid rgba(5, 217, 232, 0.3)",
-                    boxShadow: "0 10px 40px rgba(0,0,0,0.5), 0 0 20px rgba(5, 217, 232, 0.2)",
-                    padding: "16px 20px",
-                    borderRadius: "16px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "15px",
-                    zIndex: 10000,
-                    minWidth: "300px",
-                    animation: "slideIn 0.3s ease-out"
+                    position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)",
+                    background: "rgba(10, 10, 20, 0.95)", border: "1px solid #05d9e8",
+                    padding: "12px 20px", borderRadius: "12px", zIndex: 10000, display: "flex", gap: "10px"
                 }}>
-                    {/* ICON (Green for Success, Red for Error) */}
-                    <div style={{
-                        background: notification.type === "success" 
-                            ? "linear-gradient(135deg, #05d9e8 0%, #0056ff 100%)" 
-                            : "linear-gradient(135deg, #ff2a6d 0%, #ff5e62 100%)",
-                        width: "40px", height: "40px", borderRadius: "12px",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        boxShadow: "0 4px 10px rgba(5, 217, 232, 0.3)"
-                    }}>
-                        {notification.type === "success" ? <Check size={20} color="white" /> : <X size={20} color="white" />}
-                    </div>
-
-                    {/* TEXT CONTENT */}
-                    <div style={{ flex: 1 }}>
-                        <h4 style={{ color: "white", margin: "0 0 4px 0", fontSize: "14px", fontWeight: "700" }}>
-                            {notification.type === "success" ? "Success!" : "Notice"}
-                        </h4>
-                        <p style={{ color: "#aaa", margin: 0, fontSize: "12px" }}>
-                            {notification.msg}
-                        </p>
-                    </div>
-
-                    {/* CLOSE BUTTON */}
-                    <button 
-                        onClick={() => setNotification(null)}
-                        style={{ background: "transparent", border: "none", color: "#666", cursor: "pointer", padding: "5px", display: "flex", alignItems: "center", transition: "color 0.2s" }}
-                        onMouseOver={(e) => e.target.style.color = "white"}
-                        onMouseOut={(e) => e.target.style.color = "#666"}
-                    >
-                        <X size={18} />
-                    </button>
+                    {notification.type === "success" ? <Check color="#05d9e8" /> : <X color="#ff2a6d" />}
+                    <span style={{ color: "white" }}>{notification.msg}</span>
                 </div>
             )}
 
             {/* MAIN DISCOVERY AREA */}
             <div className="dashboard-card" style={{ 
-                position: "relative", 
-                // paddingTop: "30px", 
-                // overflow: "hidden", 
-                height: "650px", 
-                height: "100%",
-                display: "flex",
-                flexDirection: "column"
-            }}>
-                <div style={{ padding: "0 30px",  }}>
-                    <div style={{ display: "flex", alignItems: "center", background: "#0b0c15", padding: "10px", borderRadius: "8px", maxWidth: "300px" }}>
-                        <Search size={16} color="#666" />
-                        <input placeholder="Reg No or Name" style={{ background: "transparent", border: "none", color: "white", marginLeft: "10px", outline: "none" }} />
-                    </div>
-                </div>
+    flex: 1, 
+    display: "flex", 
+    flexDirection: "column", 
+    position: "relative", 
+    minHeight: "500px",
+    marginTop: isMobile ? "0px" : "-10px", // Pull up only on desktop to avoid mobile overlap
+    overflow: "hidden", // Keeps rays inside the card
+    zIndex: 1
 
-                <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", paddingBottom: "40px" }}>
+}}>
+                {/* Mobile Sidebar Toggle - Positioned where search bar was */}
+                {isMobile && (
+                    <div style={{ padding: "15px", display: "flex", justifyContent: "flex-end", zIndex: 10 }}>
+                        <button onClick={() => setShowSidebar(true)} style={{ background: "#05d9e8", border: "none", borderRadius: "10px", padding: "10px", color: "black" }}>
+                            <Settings2 size={20} />
+                        </button>
+                    </div>
+                )}
+
+                {/* Card Stack Area - Flex centered with slight upward offset */}
+                <div style={{ 
+                    flex: 1, 
+                    display: "flex", 
+                    justifyContent: "center", 
+                    alignItems: "center", 
+                    zIndex: 5,
+                    marginTop: isMobile ? "0px" : "30px" 
+                }}>
                     {loading ? (
                         <p style={{ color: "#aaa" }}>Finding students...</p>
-                    ) : users.length > 0 ? (
-                        <CardStack
-                            users={users}
-                            onSwipeDown={sendFriendRequest}
-                            onSwipeUp={(u) => console.log("Skipped:", u.name)}
-                        />
+                    ) : filteredUsers.length > 0 ? (
+                        <CardStack users={filteredUsers} onSwipeDown={sendFriendRequest} onSwipeUp={() => {}} />
                     ) : (
-                        <p style={{ color: "#777" }}>No more users to discover</p>
+                        <p style={{ color: "#777" }}>No users found</p>
                     )}
                 </div>
-                <LightRays raysColor="#ff2a6d" />
+
+                {/* LightRays - Keyed to force re-render on resize to maintain position */}
+                <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }}>
+                    <LightRays key={isMobile ? "mobile-view" : "desktop-view"} raysColor="#ff2a6d" />
+                </div>
             </div>
 
             {/* SIDEBAR */}
-            <div className="dashboard-card" style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "20px" }}>
-                <div>
-                    <h3 style={{ color: "white", marginBottom: "15px" }}>Connect Rooms</h3>
-                    {PUBLIC_GROUPS.map(g => (
-                        <div key={g.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px" }}>
-                            <div>
-                                <div style={{ color: "white", fontSize: "15px" }}>{g.name}</div>
-                                <div style={{ color: "#777", fontSize: "12px" }}>{g.members} members</div>
+            <div style={{ 
+                width: isMobile ? "100%" : "350px",
+                position: isMobile ? "fixed" : "relative",
+                top: 0, right: 0, bottom: 0,
+                zIndex: 1000,
+                display: (isMobile && !showSidebar) ? "none" : "flex",
+                flexDirection: "column",
+                gap: "20px",
+                background: isMobile ? "#0a0a14" : "transparent",
+                padding: "20px",
+                overflowY: "auto"
+            }}>
+                {isMobile && (
+                    <button onClick={() => setShowSidebar(false)} style={{ alignSelf: "flex-end", color: "#05d9e8", background: "none", border: "none", fontSize: "16px", marginBottom: "10px" }}>✕ Close Filters</button>
+                )}
+
+                <div className="dashboard-card" style={{ padding: "15px" }}>
+                    <h3 style={{ color: "white", fontSize: "14px", marginBottom: "10px" }}>Branch & Batch</h3>
+                    <select onChange={(e) => setSelectedBranch(e.target.value)} style={{ width: "100%", background: "#111", color: "white", padding: "8px", borderRadius: "8px", border: "1px solid #333", marginBottom: "10px" }}>
+                        <option value="">All Branches</option>
+                        {availableBranches.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    <select onChange={(e) => setSelectedBatch(e.target.value)} style={{ width: "100%", background: "#111", color: "white", padding: "8px", borderRadius: "8px", border: "1px solid #333" }}>
+                        <option value="">All Batches</option>
+                        {availableBatches.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                </div>
+
+                <div className="dashboard-card" style={{ padding: "15px" }}>
+                    <h3 style={{ color: "white", fontSize: "14px", marginBottom: "10px" }}>Quick Match</h3>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        {['Batch', 'Branch', 'Bio'].map(label => {
+                            const active = label === 'Batch' ? matchBatch : label === 'Branch' ? matchBranch : matchBio;
+                            return (
+                                <button key={label} onClick={() => {
+                                    if(label === 'Batch') setMatchBatch(!matchBatch);
+                                    if(label === 'Branch') setMatchBranch(!matchBranch);
+                                    if(label === 'Bio') setMatchBio(!matchBio);
+                                }} style={{
+                                    padding: "6px 12px", borderRadius: "20px", fontSize: "12px",
+                                    border: "1px solid #05d9e8", cursor: "pointer",
+                                    background: active ? "#05d9e8" : "transparent",
+                                    color: active ? "black" : "#05d9e8",
+                                    transition: "0.3s"
+                                }}>{label}</button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="dashboard-card" style={{ padding: "15px", flex: 1 }}>
+                    <h3 style={{ color: "white", fontSize: "14px", marginBottom: "10px" }}>Top Matches</h3>
+                    {matchingUsers.map((u, i) => (
+                        <div key={i} style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "12px" }}>
+                            <img src={u.photoUrl || "/avatar.png"} style={{ width: "35px", height: "35px", borderRadius: "50%", border: "1px solid #05d9e8" }} alt="" />
+                            <div style={{ overflow: "hidden" }}>
+                                <div style={{ color: "white", fontSize: "13px", fontWeight: "600", textOverflow: "ellipsis", whiteSpace: "nowrap", overflow: "hidden" }}>{u.name}</div>
+                                <div style={{ color: "#666", fontSize: "10px" }}>{u.branch}</div>
                             </div>
-                            <button onClick={() => navigate("/chat")} style={{ background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)", padding: "5px 15px", borderRadius: "20px", cursor: "pointer" }}>
-                                Join
-                            </button>
                         </div>
                     ))}
                 </div>
