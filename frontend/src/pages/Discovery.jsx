@@ -4,7 +4,7 @@ import LightRays from "../components/effects/LightRays";
 import { Check, X, Settings2 } from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/mainContext";
-import { collection, getDocs, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../conf/firebase";
 
 const Discovery = () => {
@@ -98,7 +98,8 @@ const Discovery = () => {
             display: "flex",
             flexDirection: isMobile ? "column" : "row",
             gap: "20px",
-            height: "calc(100vh - 100px)",
+            // Mobile: use 100dvh to avoid browser bar cutting off content. Desktop: use your original calc.
+            height: isMobile ? "calc(100dvh - 80px)" : "calc(100vh - 100px)", 
             padding: "10px",
             position: "relative",
             overflow: "hidden"
@@ -118,33 +119,36 @@ const Discovery = () => {
 
             {/* MAIN DISCOVERY AREA */}
             <div className="dashboard-card" style={{ 
-    flex: 1, 
-    display: "flex", 
-    flexDirection: "column", 
-    position: "relative", 
-    minHeight: "500px",
-    marginTop: isMobile ? "0px" : "-10px", // Pull up only on desktop to avoid mobile overlap
-    overflow: "hidden", // Keeps rays inside the card
-    zIndex: 1
-
-}}>
-                {/* Mobile Sidebar Toggle - Positioned where search bar was */}
+                flex: 1, 
+                display: "flex", 
+                flexDirection: "column", 
+                position: "relative", 
+                // Mobile: remove minHeight to let it shrink if needed. Desktop: keep your 500px.
+                minHeight: isMobile ? "auto" : "500px",
+                marginTop: isMobile ? "0px" : "-10px", 
+                overflow: "hidden", 
+                zIndex: 1
+            }}>
+                {/* Mobile Sidebar Toggle - Floating on top right so it doesn't push cards down */}
                 {isMobile && (
-                    <div style={{ padding: "15px", display: "flex", justifyContent: "flex-end", zIndex: 10 }}>
-                        <button onClick={() => setShowSidebar(true)} style={{ background: "#05d9e8", border: "none", borderRadius: "10px", padding: "10px", color: "black" }}>
+                    <div style={{ position: "absolute", top: "15px", right: "15px", zIndex: 50 }}>
+                        <button onClick={() => setShowSidebar(true)} style={{ background: "#05d9e8", border: "none", borderRadius: "10px", padding: "10px", color: "black", boxShadow: "0 4px 10px rgba(0,0,0,0.3)" }}>
                             <Settings2 size={20} />
                         </button>
                     </div>
                 )}
 
-                {/* Card Stack Area - Flex centered with slight upward offset */}
+                {/* Card Stack Area */}
                 <div style={{ 
                     flex: 1, 
                     display: "flex", 
                     justifyContent: "center", 
                     alignItems: "center", 
                     zIndex: 5,
-                    marginTop: isMobile ? "0px" : "30px" 
+                    // Mobile: No margin top needed since button floats. Desktop: keep your 30px.
+                    marginTop: isMobile ? "0px" : "30px",
+                    width: "100%",
+                    height: "100%"
                 }}>
                     {loading ? (
                         <p style={{ color: "#aaa" }}>Finding students...</p>
@@ -155,13 +159,13 @@ const Discovery = () => {
                     )}
                 </div>
 
-                {/* LightRays - Keyed to force re-render on resize to maintain position */}
+                {/* LightRays */}
                 <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }}>
                     <LightRays key={isMobile ? "mobile-view" : "desktop-view"} raysColor="#ff2a6d" />
                 </div>
             </div>
 
-            {/* SIDEBAR */}
+            {/* SIDEBAR (Filters & Matches) */}
             <div style={{ 
                 width: isMobile ? "100%" : "350px",
                 position: isMobile ? "fixed" : "relative",
@@ -172,10 +176,14 @@ const Discovery = () => {
                 gap: "20px",
                 background: isMobile ? "#0a0a14" : "transparent",
                 padding: "20px",
-                overflowY: "auto"
+                overflowY: "auto",
+                // Mobile animation or safe area handling
+                paddingTop: isMobile ? "40px" : "20px"
             }}>
                 {isMobile && (
-                    <button onClick={() => setShowSidebar(false)} style={{ alignSelf: "flex-end", color: "#05d9e8", background: "none", border: "none", fontSize: "16px", marginBottom: "10px" }}>✕ Close Filters</button>
+                    <button onClick={() => setShowSidebar(false)} style={{ alignSelf: "flex-end", color: "#05d9e8", background: "none", border: "none", fontSize: "16px", marginBottom: "10px", fontWeight: "bold" }}>
+                        ✕ Close Filters
+                    </button>
                 )}
 
                 <div className="dashboard-card" style={{ padding: "15px" }}>
@@ -212,11 +220,11 @@ const Discovery = () => {
                     </div>
                 </div>
 
-                <div className="dashboard-card" style={{ padding: "15px", flex: 1 }}>
+                <div className="dashboard-card" style={{ padding: "15px", flex: 1, minHeight: isMobile ? "300px" : "auto" }}>
                     <h3 style={{ color: "white", fontSize: "14px", marginBottom: "10px" }}>Top Matches</h3>
                     {matchingUsers.map((u, i) => (
                         <div key={i} style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "12px" }}>
-                            <img src={u.photoUrl || "/avatar.png"} style={{ width: "35px", height: "35px", borderRadius: "50%", border: "1px solid #05d9e8" }} alt="" />
+                            <img src={u.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} style={{ width: "35px", height: "35px", borderRadius: "50%", border: "1px solid #05d9e8", objectFit: "cover" }} alt="" />
                             <div style={{ overflow: "hidden" }}>
                                 <div style={{ color: "white", fontSize: "13px", fontWeight: "600", textOverflow: "ellipsis", whiteSpace: "nowrap", overflow: "hidden" }}>{u.name}</div>
                                 <div style={{ color: "#666", fontSize: "10px" }}>{u.branch}</div>
