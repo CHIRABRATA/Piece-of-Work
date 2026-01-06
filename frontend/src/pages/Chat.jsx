@@ -283,24 +283,32 @@ const Chat = () => {
   return (
     <div style={{
       display: isMobile ? "flex" : "grid",
-      gridTemplateColumns: "350px 1fr",
+      gridTemplateColumns: isMobile ? "1fr" : "minmax(280px, 350px) 1fr",
       gap: "20px",
       height: "calc(100vh - 120px)",
       width: "100%",
-      overflow: "hidden"
+      overflow: "hidden",
+      padding: isMobile ? "0" : "0"
     }}>
 
       {/* LEFT: Sidebar */}
       {showList && (
-        <div className="dashboard-card" style={{ display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+        <div className="dashboard-card" style={{ 
+          display: "flex", 
+          flexDirection: "column", 
+          overflow: "hidden", 
+          position: "relative",
+          minWidth: isMobile ? "100%" : "280px",
+          width: isMobile ? "100%" : "auto"
+        }}>
 
           {/* Header */}
-          <div style={{ padding: "20px 20px 10px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "15px" }}>
-              <h2 style={{ fontSize: "18px", fontWeight: "900", color: "white", margin: 0, letterSpacing: "1px" }}>
+          <div style={{ padding: isMobile ? "15px 15px 10px 15px" : "20px 20px 10px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "15px", gap: "10px", flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: isMobile ? "16px" : "18px", fontWeight: "900", color: "white", margin: 0, letterSpacing: "1px" }}>
                 {activeView === "chats" ? "CHATS" : activeView === "create_group" ? "NEW GROUP" : "FRIENDS"}
               </h2>
-              <div style={{ display: 'flex', gap: '5px' }}>
+              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                 {activeView !== "create_group" && (
                   <button
                     title="Create Group"
@@ -313,7 +321,7 @@ const Chat = () => {
                 <button
                   disabled={actionLoading}
                   onClick={() => setActiveView(activeView === "chats" ? "friends" : "chats")}
-                  style={{ background: "rgba(5, 217, 232, 0.1)", border: "1px solid #05d9e8", color: "#05d9e8", padding: "5px 12px", borderRadius: "20px", fontSize: "12px", cursor: actionLoading ? "not-allowed" : "pointer", fontWeight: "700" }}
+                  style={{ background: "rgba(5, 217, 232, 0.1)", border: "1px solid #05d9e8", color: "#05d9e8", padding: isMobile ? "5px 10px" : "5px 12px", borderRadius: "20px", fontSize: isMobile ? "11px" : "12px", cursor: actionLoading ? "not-allowed" : "pointer", fontWeight: "700", whiteSpace: "nowrap" }}
                 >
                   {activeView === "chats" ? "+ New Chat" : "View Chats"}
                 </button>
@@ -328,7 +336,7 @@ const Chat = () => {
                   placeholder={activeView === "chats" ? "Search chats..." : "Search friends..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", padding: "10px 10px 10px 35px", color: "white", outline: "none", fontSize: "14px" }}
+                  style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", padding: "10px 10px 10px 35px", color: "white", outline: "none", fontSize: isMobile ? "13px" : "14px" }}
                 />
               </div>
             )}
@@ -415,12 +423,12 @@ const Chat = () => {
                   }}
                 >
                   <div style={{ position: "relative" }}>
-                    <img src={item.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} alt={item.name} style={{ width: "50px", height: "50px", borderRadius: "14px", objectFit: "cover", background: "#333" }} />
+                    <img src={item.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} alt={item.name} style={{ width: "50px", height: "50px", borderRadius: "14px", objectFit: "cover", background: "#333", minWidth: "50px" }} />
                     {item.lastMessage && <div style={{ position: "absolute", top: -2, right: -2, width: 12, height: 12, background: "#05d9e8", borderRadius: "50%", border: "3px solid #13141f" }} />}
                   </div>
-                  <div style={{ flex: 1, overflow: "hidden" }}>
-                    <div style={{ fontWeight: "700", fontSize: "16px", color: "white", marginBottom: "2px" }}>{item.name}</div>
-                    <div style={{ fontSize: "13px", color: "#6c757d", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
+                    <div style={{ fontWeight: "700", fontSize: isMobile ? "14px" : "16px", color: "white", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                    <div style={{ fontSize: isMobile ? "12px" : "13px", color: "#6c757d", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {activeView === "chats" ? (item.lastMessage || "Start a conversation...") : "Tab to message"}
                     </div>
                   </div>
@@ -443,35 +451,43 @@ const Chat = () => {
 
       {/* RIGHT: Window */}
       {showChatWindow && (
-        <div className="dashboard-card" style={{ display: "flex", flexDirection: "column", overflow: "hidden", background: "rgba(13, 14, 27, 0.7)" }}>
+        <div className="dashboard-card" style={{ 
+          display: "flex", 
+          flexDirection: "column", 
+          overflow: "hidden", 
+          background: "rgba(13, 14, 27, 0.7)",
+          minWidth: isMobile ? "100%" : "0",
+          width: isMobile ? "100%" : "auto",
+          flex: isMobile ? "1" : "1"
+        }}>
           {selectedChat ? (
             <>
               {/* Header */}
-              <div style={{ padding: "15px 25px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.2)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+              <div style={{ padding: isMobile ? "12px 15px" : "15px 25px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.2)", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "10px" : "15px", minWidth: 0 }}>
                   {isMobile && (
-                    <button onClick={() => setSelectedChat(null)} style={{ background: "transparent", border: "none", color: "white", padding: 0, cursor: "pointer" }}>
+                    <button onClick={() => setSelectedChat(null)} style={{ background: "transparent", border: "none", color: "white", padding: 0, cursor: "pointer", minWidth: "24px" }}>
                       <ArrowLeft size={24} />
                     </button>
                   )}
-                  <img src={selectedChat.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} style={{ width: "45px", height: "45px", borderRadius: "12px", objectFit: "cover" }} />
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: "18px", color: "white", fontWeight: "800" }}>{selectedChat.name}</h3>
+                  <img src={selectedChat.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} style={{ width: isMobile ? "40px" : "45px", height: isMobile ? "40px" : "45px", borderRadius: "12px", objectFit: "cover", minWidth: isMobile ? "40px" : "45px" }} />
+                  <div style={{ minWidth: 0 }}>
+                    <h3 style={{ margin: 0, fontSize: isMobile ? "16px" : "18px", color: "white", fontWeight: "800", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedChat.name}</h3>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                      <span style={{ fontSize: "12px", color: "#00ff88", fontWeight: "600" }}>Real-time Enabled</span>
+                      <span style={{ fontSize: isMobile ? "10px" : "12px", color: "#00ff88", fontWeight: "600" }}>Real-time Enabled</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Messages Body */}
-              <div style={{ flex: 1, padding: "20px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", scrollbarWidth: "thin" }}>
+              <div style={{ flex: 1, padding: isMobile ? "15px" : "20px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", scrollbarWidth: "thin" }}>
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full opacity-30">
-                    <MessageSquare size={80} className="mb-4" />
-                    <p className="text-xl font-bold">Say Hello to {selectedChat.name}!</p>
-                    <p className="text-sm">Start your conversation below</p>
+                    <MessageSquare size={isMobile ? 60 : 80} className="mb-4" />
+                    <p className="text-lg font-bold" style={{ fontSize: isMobile ? "16px" : "20px" }}>Say Hello to {selectedChat.name}!</p>
+                    <p className="text-sm" style={{ fontSize: isMobile ? "12px" : "14px" }}>Start your conversation below</p>
                   </div>
                 ) : (
                   messages.map((m, idx) => {
@@ -482,13 +498,14 @@ const Chat = () => {
                         key={m.id || idx}
                         style={{
                           alignSelf: isMine ? "flex-end" : "flex-start",
-                          maxWidth: "70%",
+                          maxWidth: isMobile ? "85%" : "70%",
                           background: isMine ? "linear-gradient(135deg, #05d9e8 0%, #00b4d8 100%)" : "rgba(255,255,255,0.08)",
                           color: isMine ? "black" : "white",
                           padding: "12px 18px",
                           borderRadius: isMine ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
                           boxShadow: isMine ? "0 4px 15px rgba(5, 217, 232, 0.2)" : "none",
-                          position: "relative"
+                          position: "relative",
+                          wordBreak: "break-word"
                         }}
                       >
                         {senderProfile && (
@@ -496,7 +513,7 @@ const Chat = () => {
                             {senderProfile.name}
                           </div>
                         )}
-                        <div style={{ fontSize: "15px", lineHeight: "1.4", fontWeight: isMine ? "600" : "400" }}>{m.text}</div>
+                        <div style={{ fontSize: isMobile ? "14px" : "15px", lineHeight: "1.4", fontWeight: isMine ? "600" : "400" }}>{m.text}</div>
                         <div style={{ fontSize: "10px", marginTop: "4px", textAlign: isMine ? "right" : "left", opacity: 0.5 }}>
                           {m.createdAt?.toMillis ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                         </div>
@@ -508,7 +525,7 @@ const Chat = () => {
               </div>
 
               {/* Input Area */}
-              <div style={{ padding: "20px 30px", background: "rgba(0,0,0,0.3)" }}>
+              <div style={{ padding: isMobile ? "15px 20px" : "20px 30px", background: "rgba(0,0,0,0.3)" }}>
                 <div style={{ display: "flex", gap: "10px", alignItems: "center", background: "#0b0c15", padding: "8px 8px 8px 20px", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.5)" }}>
                   <input
                     type="text"
@@ -516,12 +533,12 @@ const Chat = () => {
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && handleSend()}
-                    style={{ flex: 1, background: "transparent", border: "none", color: "white", outline: "none", fontSize: "16px" }}
+                    style={{ flex: 1, background: "transparent", border: "none", color: "white", outline: "none", fontSize: isMobile ? "14px" : "16px" }}
                   />
                   <button
                     onClick={handleSend}
                     disabled={!messageInput.trim()}
-                    style={{ width: "45px", height: "45px", borderRadius: "15px", background: messageInput.trim() ? "#05d9e8" : "#333", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}
+                    style={{ width: "45px", height: "45px", borderRadius: "15px", background: messageInput.trim() ? "#05d9e8" : "#333", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s", minWidth: "45px", flexShrink: 0 }}
                   >
                     <Send size={20} color={messageInput.trim() ? "black" : "#666"} />
                   </button>
@@ -529,18 +546,19 @@ const Chat = () => {
               </div>
             </>
           ) : (
-            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#6c757d", padding: "40px", textAlign: "center" }}>
+            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#6c757d", padding: isMobile ? "20px" : "40px", textAlign: "center" }}>
               <div style={{ position: "relative", marginBottom: "30px" }}>
                 <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full"></div>
-                <MessageSquare size={100} style={{ opacity: 0.1, position: "relative" }} />
+                <MessageSquare size={isMobile ? 80 : 100} style={{ opacity: 0.1, position: "relative" }} />
               </div>
-              <h2 style={{ margin: "0 0 10px 0", color: "white", fontSize: "24px", fontWeight: "900" }}>Your Inbox</h2>
-              <p style={{ opacity: 0.5, maxWidth: "300px", lineHeight: "1.6" }}>
+              <h2 style={{ margin: "0 0 10px 0", color: "white", fontSize: isMobile ? "20px" : "24px", fontWeight: "900" }}>Your Inbox</h2>
+              <p style={{ opacity: 0.5, maxWidth: "300px", lineHeight: "1.6", fontSize: isMobile ? "13px" : "14px" }}>
                 Select a conversation from the left or start a new message with one of your connections.
               </p>
               <button
                 onClick={() => setActiveView("friends")}
                 className="mt-6 px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all transform hover:scale-105"
+                style={{ fontSize: isMobile ? "14px" : "16px" }}
               >
                 Start Messaging
               </button>
