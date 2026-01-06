@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/mainContext";
 import Layout from "./components/Layout";
 import Discovery from "./pages/Discovery";
-import Login from "./Pages/Login";
+import Login from "./pages/Login";
 import Chat from "./pages/Chat";
 import Find from "./pages/Find";
 import Profile from "./pages/Profile";
