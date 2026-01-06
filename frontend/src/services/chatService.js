@@ -10,7 +10,8 @@ import {
     serverTimestamp,
     orderBy,
     getDoc,
-    limit
+    limit,
+    Timestamp
 } from "firebase/firestore";
 
 /**
@@ -54,14 +55,14 @@ export const createChat = async (uid1, uid2) => {
 /**
  * Creates a NEW group chat.
  */
-export const createGroupChat = async (groupName, userIds, creatorId) => {
+export const createGroupChat = async (groupName, userIds, creatorId, isEphemeral = false) => {
     // Create a reference with an auto-generated ID (random)
     const chatRef = doc(collection(db, "chats"));
     const chatId = chatRef.id;
 
     try {
-        await setDoc(chatRef, {
-            type: "group",
+        const chatData = {
+            type: isEphemeral ? "ephemeral_group" : "group",
             groupName,
             users: userIds,
             createdBy: creatorId,
@@ -69,7 +70,22 @@ export const createGroupChat = async (groupName, userIds, creatorId) => {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             lastMessage: `Group "${groupName}" created`
-        });
+        };
+
+        if (isEphemeral) {
+            // 1 hour expiry
+            // We use Timestamp.fromDate because serverTimestamp() is not resolved immediately client-side for calculations if needed, 
+            // but strictly for storage it is fine. 
+            // Requirements said: "expiresAt = serverTimestamp + 1 hour" isn't directly possible with serverTimestamp token math in simple setDoc.
+            // We will use Client side Date for expiresAt to be easier, or we calculate it. 
+            // User Request: "Set expiresAt = serverTimestamp + 1 hour"
+            // Firestore doesn't support "serverTimestamp() + duration" efficiently in one go without cloud functions.
+            // The user said "Expiry Logic (Frontend-Only)".
+            // So I will use `Timestamp.fromDate(new Date(Date.now() + 3600000))` which is close enough to server time for this usecase.
+            chatData.expiresAt = Timestamp.fromDate(new Date(Date.now() + 3600000));
+        }
+
+        await setDoc(chatRef, chatData);
 
         console.log("Group Chat created:", chatId);
         return chatId;
@@ -110,10 +126,23 @@ export const getChatsListener = (uid, callback) => {
     );
 
     return onSnapshot(q, (snapshot) => {
-        const chats = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
+        const chats = [];
+        const now = new Date();
+
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            // Filter expired ephemeral groups
+            if (data.type === "ephemeral_group" && data.expiresAt) {
+                const expiresVal = data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt.seconds * 1000); // Handle Firestore Timestamp
+                if (expiresVal < now) {
+                    return; // Skip expired chat
+                }
+            }
+            chats.push({
+                id: doc.id,
+                ...data
+            });
+        });
         callback(chats);
     }, (error) => {
         console.error("Error in getChatsListener:", error);
