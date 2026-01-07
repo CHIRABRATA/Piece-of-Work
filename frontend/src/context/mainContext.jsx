@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
   // LOGOUT LOGIC
   const logout = async () => {
     // We get the regNo before clearing it to update Firestore
-    await logoutStudent();
+    await logoutStudent(user?.uid);
     localStorage.removeItem("userRegNo");
     setUser(null);
   };

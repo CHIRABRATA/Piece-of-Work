@@ -26,12 +26,12 @@ const Find = () => {
         const data = d.data();
         list.push({
           id: d.id,
-          name: data.Name || "Unknown",
+          name: data.name || "Unknown",
           regNo: data.regNo || "",
-          major: data.DEPT || "",
+          major: data.branch || "",
           year: data.year || "",
-          status: "Online",
-          photoUrl: data.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+          status: data.isOnline ? "Online" : "Offline",
+          photoUrl: data.photoUrl || "https://cdn-icons-png.flaticon.com/512/149/149071.png"
         });
       });
       setStudents(list.filter(s => s.id !== user?.uid));

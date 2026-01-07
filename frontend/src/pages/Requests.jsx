@@ -52,14 +52,16 @@ const Requests = () => {
         let name = "Unknown";
         let photo = "";
         let bio = "Student";
+        let isOnline = false;
 
         try {
           const userSnap = await getDoc(doc(db, "users", targetId));
           if (userSnap.exists()) {
             const u = userSnap.data();
-            name = u.Name || "Unknown";
-            photo = u.photoURL || "";
-            bio = u.BIO || "Student";
+            name = u.name || "Unknown";
+            photo = u.photoUrl || "";
+            bio = u.bio || "Student";
+            isOnline = u.isOnline || false;
           }
         } catch (e) {
           console.error(e);
@@ -71,7 +73,8 @@ const Requests = () => {
           targetId,
           name,
           photo,
-          bio
+          bio,
+          isOnline
         });
       });
 
@@ -233,7 +236,10 @@ const Requests = () => {
         pendingRequests.map(req => (
           <div key={req.id} style={row}>
             <div style={userBox}>
-              <img src={req.photo || defaultAvatar} style={avatar} />
+              <div style={{ position: "relative" }}>
+                <img src={req.photo || defaultAvatar} style={avatar} />
+                {req.isOnline && <div style={{ position: "absolute", bottom: 0, right: 0, width: "10px", height: "10px", background: "#00ff88", borderRadius: "50%", border: "2px solid #161722" }} />}
+              </div>
               <div>
                 <b>{req.name}</b>
                 <div style={{ fontSize: 12, color: "#ff2a6d" }}>
@@ -256,7 +262,10 @@ const Requests = () => {
         acceptedRequests.map(req => (
           <div key={req.id} style={row}>
             <div style={userBox}>
-              <img src={req.photo || defaultAvatar} style={avatar} />
+              <div style={{ position: "relative" }}>
+                <img src={req.photo || defaultAvatar} style={avatar} />
+                {req.isOnline && <div style={{ position: "absolute", bottom: 0, right: 0, width: "10px", height: "10px", background: "#00ff88", borderRadius: "50%", border: "2px solid #161722" }} />}
+              </div>
               <div>
                 <b>{req.name}</b>
                 <div style={{ fontSize: 12, color: "#aaa" }}>{req.bio}</div>

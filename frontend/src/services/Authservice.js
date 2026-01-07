@@ -11,6 +11,24 @@ import {
   serverTimestamp 
 } from "firebase/firestore";
 
+/**
+ * Updates the user's online status in the users collection
+ * @param {string} uid - The user's authentication ID
+ * @param {boolean} isOnline - Whether the user is online
+ */
+export const updateUserOnlineStatus = async (uid, isOnline) => {
+  if (!uid) return;
+  try {
+    const userDoc = doc(db, "users", uid);
+    await updateDoc(userDoc, {
+      isOnline: isOnline,
+      lastSeen: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Error updating online status:", error);
+  }
+};
+
 // --- LOGIN FUNCTION ---
 export const loginStudent = async (email, password, regNo) => {
   const docRef = doc(db, "valid_students", regNo);
@@ -29,13 +47,16 @@ export const loginStudent = async (email, password, regNo) => {
   }
 
   // 3. Authenticate with Firebase
-  await signInWithEmailAndPassword(auth, email, password);
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
   // 4. Update session status
   await updateDoc(docRef, {
     is_registered: true,
     lastLogin: serverTimestamp(),
   });
+
+  // 5. Update online status in users collection
+  await updateUserOnlineStatus(userCredential.user.uid, true);
 
   localStorage.setItem("userRegNo", regNo);
   return { email, regNo };
@@ -57,7 +78,7 @@ export const signupStudent = async (email, password, regNo) => {
   }
 
   // 3. Create Firebase Auth Account
-  await createUserWithEmailAndPassword(auth, email, password);
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
   // 4. Link the email to the RegNo in Firestore
   await updateDoc(docRef, {
@@ -66,12 +87,15 @@ export const signupStudent = async (email, password, regNo) => {
     lastLogin: serverTimestamp(),
   });
 
+  // 5. Update online status in users collection
+  await updateUserOnlineStatus(userCredential.user.uid, true);
+
   localStorage.setItem("userRegNo", regNo);
   return { email, regNo };
 };
 
 // --- LOGOUT FUNCTION ---
-export const logoutStudent = async () => {
+export const logoutStudent = async (uid) => {
   const storedReg = localStorage.getItem("userRegNo");
   if (storedReg) {
     const docRef = doc(db, "valid_students", storedReg);
@@ -81,6 +105,12 @@ export const logoutStudent = async () => {
       console.error("Error updating logout status", e);
     }
   }
+  
+  // Update online status to false
+  if (uid) {
+    await updateUserOnlineStatus(uid, false);
+  }
+  
   await signOut(auth);
   localStorage.removeItem("userRegNo");
 };
