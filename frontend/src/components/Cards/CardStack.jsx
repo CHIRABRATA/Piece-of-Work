@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProfileCard from "./ProfileCard";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -26,7 +26,7 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
   ];
 
   const handleDragEnd = (event, info) => {
-    const threshold = 50; 
+    const threshold = isMobile ? 40 : 50; // Lower threshold for mobile sensitivity
     
     if (info.offset.y > threshold) {
       // Swiped DOWN - Send friend request
@@ -40,6 +40,9 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
     setDragY(0);
   };
 
+  // Memoize visible users to prevent unnecessary recalculations
+  const memoVisibleUsers = useMemo(() => visibleUsers, [currentIndex]);
+
   return (
     <div style={{ 
         position: "relative", 
@@ -50,10 +53,10 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
         justifyContent: "center", 
         alignItems: "center" 
     }}>
-      {/* SWIPE INSTRUCTIONS - Top Arrow (UP) */}
+      {/* SWIPE INSTRUCTIONS - Top Arrow (UP) - Optimized for Mobile */}
       <motion.div
         animate={{ y: dragY < -20 ? -15 : 0, opacity: dragY < -20 ? 1 : 0.4 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: isMobile ? 0.1 : 0.2, type: "tween" }}
         style={{
           position: "absolute",
           top: "10px",
@@ -65,7 +68,8 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
           alignItems: "center",
           gap: "5px",
           color: "#00d4ff",
-          pointerEvents: "none"
+          pointerEvents: "none",
+          willChange: "opacity, transform"
         }}
       >
         <ChevronUp size={24} strokeWidth={3} />
@@ -74,10 +78,10 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
         </span>
       </motion.div>
 
-      {/* SWIPE INSTRUCTIONS - Bottom Arrow (DOWN) */}
+      {/* SWIPE INSTRUCTIONS - Bottom Arrow (DOWN) - Optimized for Mobile */}
       <motion.div
         animate={{ y: dragY > 20 ? 15 : 0, opacity: dragY > 20 ? 1 : 0.4 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: isMobile ? 0.1 : 0.2, type: "tween" }}
         style={{
           position: "absolute",
           bottom: "10px",
@@ -89,7 +93,8 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
           alignItems: "center",
           gap: "5px",
           color: "#ff2a6d",
-          pointerEvents: "none"
+          pointerEvents: "none",
+          willChange: "opacity, transform"
         }}
       >
         <span style={{ fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
@@ -98,8 +103,8 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
         <ChevronDown size={24} strokeWidth={3} />
       </motion.div>
 
-      <AnimatePresence>
-        {visibleUsers.reverse().map((user, index) => {
+      <AnimatePresence mode="popLayout">
+        {memoVisibleUsers.reverse().map((user, index) => {
           const isTop = index === 2; 
           
           return (
@@ -107,7 +112,8 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
               key={user.uid + currentIndex}
               drag={isTop ? "y" : false}
               dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.6}
+              dragElastic={isMobile ? 0.4 : 0.6}
+              dragTransition={isMobile ? { power: 0.2, restDelta: 0.001 } : undefined}
               onDragEnd={handleDragEnd}
               onDrag={(event, info) => setDragY(info.offset.y)}
               
@@ -119,23 +125,29 @@ const CardStack = ({ users, onSwipeDown, onSwipeUp }) => {
                 zIndex: index, 
                 opacity: 1 
               }}
+              transition={{
+                type: isMobile ? "tween" : "spring",
+                duration: isMobile ? 0.15 : undefined,
+                stiffness: isMobile ? undefined : 200,
+                damping: isMobile ? undefined : 20
+              }}
               
               exit={{ 
                 y: isTop ? (Math.random() > 0.5 ? 200 : -200) : 0, 
                 opacity: 0, 
-                transition: { duration: 0.2 }
+                transition: { duration: isMobile ? 0.1 : 0.2, type: "tween" }
               }}
               
               style={{
                 position: "absolute",
-                // --- RESPONSIVE CARD SIZES ---
-                // Desktop: 370px x 550px (Your original perfect size)
-                // Mobile:  320px x 480px (Smaller to prevent overflow)
                 width: isMobile ? "320px" : "370px",
                 height: isMobile ? "480px" : "550px",
-                maxWidth: "90vw", // Safety net for very small screens
-                margin : "20px",
+                maxWidth: "90vw",
+                margin: "20px",
                 cursor: isTop ? "grab" : "default",
+                willChange: isTop ? "transform, opacity" : "auto",
+                backfaceVisibility: "hidden",
+                perspective: 1000
               }}
             >
               <ProfileCard user={user} active={isTop} />
