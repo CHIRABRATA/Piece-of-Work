@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Save, X, Camera } from "lucide-react";
+import { Save, X, Camera, Briefcase, Users } from "lucide-react";
 import { useAuth } from "../context/mainContext";
 import { getUserProfile, updateUserProfile } from "../services/profileService";
 
@@ -9,7 +9,6 @@ const EditProfile = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
 
-    // We start with initialized state to avoid uncontrolled inputs
     const [formData, setFormData] = useState({
         name: "",
         regNo: "",
@@ -18,9 +17,9 @@ const EditProfile = () => {
         interests: "",
         year: "1st Year",
         batch: "2024",
-        branch: "Computer Science",
-        clubs: "",
-        skills: ""
+        branch: "CSE",
+        clubs: "", // Tracked for Club Hub integration
+        skills: "" // Essential for Volunteer tracking
     });
 
     useEffect(() => {
@@ -66,13 +65,13 @@ const EditProfile = () => {
         setLoading(true);
 
         try {
-            // Convert comma separated interests to array
             const interestsArray = formData.interests.split(',').map(i => i.trim()).filter(i => i);
 
-            // Prepare update payload
+            // Payload now includes skills and clubs for volunteer matching
             const updates = {
                 ...formData,
-                interests: interestsArray
+                interests: interestsArray,
+                updatedAt: new Date()
             };
 
             await updateUserProfile(user.uid, updates);
@@ -96,7 +95,7 @@ const EditProfile = () => {
                 </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6 pb-10">
                 {/* Profile Picture Section */}
                 <div className="flex flex-col items-center mb-8">
                     <div className="relative group">
@@ -113,7 +112,7 @@ const EditProfile = () => {
                     <input
                         type="text"
                         name="photoUrl"
-                        placeholder="Image URL (e.g. Unsplash link)"
+                        placeholder="Image URL"
                         value={formData.photoUrl}
                         onChange={handleChange}
                         className="mt-4 bg-white/5 border border-white/10 rounded-lg px-4 py-2 w-full max-w-sm text-sm outline-none focus:border-blue-400 transition"
@@ -129,7 +128,7 @@ const EditProfile = () => {
                         name="branch"
                         value={formData.branch}
                         onChange={handleChange}
-                        options={["CSE", "IT", "ECE", "MECH", "CIVIL", "EEE", "Computer Science", "Information Technology"]}
+                        options={["CSE", "IT", "ECE", "MECH", "CIVIL", "Computer Science", "Information Technology"]}
                     />
 
                     <div className="grid grid-cols-2 gap-4">
@@ -140,11 +139,28 @@ const EditProfile = () => {
                             onChange={handleChange}
                             options={["1st Year", "2nd Year", "3rd Year", "4th Year"]}
                         />
-                        <InputField label="Batch" name="batch" value={formData.batch} onChange={handleChange} placeholder="2024-28" />
+                        <InputField label="Batch" name="batch" value={formData.batch} onChange={handleChange} placeholder="2024" />
                     </div>
                 </div>
 
                 <TextAreaField label="Bio" name="bio" value={formData.bio} onChange={handleChange} placeholder="Tell us about yourself..." />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InputField 
+                        label="Technical Skills (e.g. React, Python)" 
+                        name="skills" 
+                        value={formData.skills} 
+                        onChange={handleChange} 
+                        placeholder="Essential for volunteering!" 
+                    />
+                    <InputField 
+                        label="Joined Clubs" 
+                        name="clubs" 
+                        value={formData.clubs} 
+                        onChange={handleChange} 
+                        placeholder="e.g. GDSC, NSS" 
+                    />
+                </div>
 
                 <InputField label="Interests (Comma separated)" name="interests" value={formData.interests} onChange={handleChange} placeholder="Coding, Music, Gaming..." />
 
@@ -169,6 +185,7 @@ const EditProfile = () => {
     );
 };
 
+// ... InputField, TextAreaField, SelectField sub-components stay the same as your original code
 const InputField = ({ label, name, value, onChange, placeholder }) => (
     <div className="flex flex-col gap-2">
         <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{label}</label>

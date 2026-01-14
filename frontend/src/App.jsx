@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/mainContext";
 import Layout from "./components/Layout";
 import Discovery from "./pages/Discovery";
+import ClubHub from "./pages/ClubHub";
+import ClubLeadDashboard from "./pages/ClubLeadDashboard";
 import Login from "./pages/Login";
 import Chat from "./pages/Chat";
 import Find from "./pages/Find";
@@ -53,6 +55,8 @@ function App() {
           }
         >
           <Route path="/" element={<Discovery />} />
+          <Route path="/club-hub" element={<ClubHub />} />
+          <Route path="/club-leader" element={<ClubLeadDashboard />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/find" element={<Find />} />
           <Route path="/profile" element={<Profile />} />
